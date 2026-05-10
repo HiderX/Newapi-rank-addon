@@ -111,6 +111,6 @@ Tier conversion maps 0-1520 USD to 0-200 stars. The first 100 stars cover Bronze
 
 ## 致谢 / Acknowledgements
 
-感谢 LinuxDo 社区在使用反馈、部署实践和体验改进上的讨论与支持。
+感谢 [LinuxDo](https://linux.do/) 社区在使用反馈、部署实践和体验改进上的讨论与支持。
 
-Thanks to the LinuxDo community for its feedback, deployment experience, and discussions that helped improve the user experience.
+Thanks to the [LinuxDo](https://linux.do/) community for its feedback, deployment experience, and discussions that helped improve the user experience.
