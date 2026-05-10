@@ -105,12 +105,19 @@ test('ranking page syncs light and dark theme from NewAPI source behavior', asyn
   assert.match(app, /localStorage\.getItem\(THEME_STORAGE_KEY\)/)
   assert.match(app, /classList\.contains\('dark'\)/)
   assert.match(app, /getAttribute\('theme-mode'\) === 'dark'/)
+  assert.match(app, /function isDocumentDark/)
+  assert.match(app, /function isDocumentLight/)
+  assert.match(app, /find\(\(themeDocument\) => themeDocument !== document\)/)
   assert.match(app, /resolveConfiguredTheme\('auto'\)/)
   assert.match(app, /MutationObserver/)
   assert.match(app, /window\.parent\.document/)
   assert.match(app, /prefers-color-scheme:\s*dark/)
   assert.doesNotMatch(app, /color-mode/)
   assert.doesNotMatch(app, /arco-theme/)
+  assert.doesNotMatch(
+    app,
+    /function readThemeFromDocument[\s\S]*?!body\.hasAttribute\('theme-mode'\)[\s\S]*?return 'light'/
+  )
   assert.match(css, /:root\[data-theme='dark'\]/)
   assert.match(css, /color-scheme:\s*dark/)
   assert.match(css, /--panel-bg:/)

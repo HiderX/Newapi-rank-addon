@@ -215,10 +215,11 @@ function syncNewApiTheme() {
 }
 
 function detectNewApiTheme() {
-  for (const themeDocument of getThemeDocuments()) {
-    const theme = readThemeFromDocument(themeDocument)
-    if (theme) return theme
-  }
+  const themeDocuments = getThemeDocuments()
+  if (themeDocuments.some(isDocumentDark)) return 'dark'
+
+  const parentThemeDocument = themeDocuments.find((themeDocument) => themeDocument !== document)
+  if (parentThemeDocument && isDocumentLight(parentThemeDocument)) return 'light'
 
   const storageTheme = readThemeFromStorage()
   if (storageTheme) return storageTheme
@@ -238,16 +239,16 @@ function getThemeDocuments() {
   return documents
 }
 
-function readThemeFromDocument(themeDocument) {
+function isDocumentDark(themeDocument) {
   const root = themeDocument.documentElement
   const body = themeDocument.body
-  if (root?.classList.contains('dark') || body?.getAttribute('theme-mode') === 'dark') {
-    return 'dark'
-  }
-  if (body && !body.hasAttribute('theme-mode') && root && !root.classList.contains('dark')) {
-    return 'light'
-  }
-  return ''
+  return root?.classList.contains('dark') || body?.getAttribute('theme-mode') === 'dark'
+}
+
+function isDocumentLight(themeDocument) {
+  const root = themeDocument.documentElement
+  const body = themeDocument.body
+  return Boolean(body && root && !body.hasAttribute('theme-mode') && !root.classList.contains('dark'))
 }
 
 function readThemeFromStorage() {
