@@ -10,6 +10,7 @@ const INITIAL_VISIBLE_ROWS = 20
 const LOAD_MORE_ROWS = 20
 const SCROLL_LOAD_THRESHOLD = 280
 const QUOTA_PER_UNIT = 500000
+const THEME_STORAGE_KEY = 'theme-mode'
 
 const state = {
   period: 'day',
@@ -28,6 +29,7 @@ const elements = {
   scrollHint: document.querySelector('#scroll-hint'),
 }
 
+installThemeSync()
 renderControls()
 elements.refreshButton.addEventListener('click', () => {
   loadRank()
@@ -112,6 +114,7 @@ function renderRankChart() {
 
   // 一次从服务端取最多 100 人，页面只按滚动位置逐批揭示，避免移动端首屏被长列表撑乱。
   const visibleRows = rows.slice(0, state.visibleRows)
+  setRankNameColumnWidth(visibleRows)
   for (const row of visibleRows) {
     const item = document.createElement('div')
     item.className = 'rank-row'
@@ -128,6 +131,22 @@ function renderRankChart() {
     elements.rankChart.append(item)
   }
   renderScrollHint(rows.length)
+}
+
+function setRankNameColumnWidth(rows) {
+  const font = getComputedStyle(elements.rankChart).font
+  const canvas = setRankNameColumnWidth.canvas || document.createElement('canvas')
+  setRankNameColumnWidth.canvas = canvas
+  const context = canvas.getContext('2d')
+  if (!context) return
+
+  context.font = font
+  const measuredWidth = rows.reduce((maxWidth, row) => {
+    return Math.max(maxWidth, context.measureText(String(row.name || '')).width)
+  }, 0)
+  const maxWidth = window.matchMedia('(max-width: 560px)').matches ? 108 : 132
+  const width = Math.ceil(Math.min(Math.max(measuredWidth + 10, 48), maxWidth))
+  elements.rankChart.style.setProperty('--rank-name-width', `${width}px`)
 }
 
 function handleInfiniteScroll() {
@@ -161,6 +180,93 @@ function setRefreshState(state) {
   elements.refreshButton.textContent = isLoading ? '刷新中' : '刷新'
   elements.refreshButton.disabled = isLoading
   elements.refreshButton.classList.toggle('is-error', isError)
+}
+
+function installThemeSync() {
+  syncNewApiTheme()
+  window.addEventListener('storage', (event) => {
+    if (!event.key || isThemeStorageKey(event.key)) syncNewApiTheme()
+  })
+
+  const colorScheme = window.matchMedia?.('(prefers-color-scheme: dark)')
+  colorScheme?.addEventListener?.('change', syncNewApiTheme)
+
+  const observer = new MutationObserver(syncNewApiTheme)
+  for (const themeDocument of getThemeDocuments()) {
+    observeThemeTarget(observer, themeDocument.documentElement)
+    observeThemeTarget(observer, themeDocument.body)
+  }
+
+  window.setInterval(syncNewApiTheme, 1000)
+}
+
+function observeThemeTarget(observer, target) {
+  if (!target) return
+  observer.observe(target, {
+    attributes: true,
+    attributeFilter: ['class', 'theme-mode'],
+  })
+}
+
+function syncNewApiTheme() {
+  const theme = detectNewApiTheme()
+  if (document.documentElement.dataset.theme === theme) return
+  document.documentElement.dataset.theme = theme
+}
+
+function detectNewApiTheme() {
+  for (const themeDocument of getThemeDocuments()) {
+    const theme = readThemeFromDocument(themeDocument)
+    if (theme) return theme
+  }
+
+  const storageTheme = readThemeFromStorage()
+  if (storageTheme) return storageTheme
+
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function getThemeDocuments() {
+  const documents = [document]
+  try {
+    if (window.parent !== window && window.parent.document) {
+      documents.push(window.parent.document)
+    }
+  } catch {
+    // 跨域嵌入时不能读取父页面，退回本页和 localStorage。
+  }
+  return documents
+}
+
+function readThemeFromDocument(themeDocument) {
+  const root = themeDocument.documentElement
+  const body = themeDocument.body
+  if (root?.classList.contains('dark') || body?.getAttribute('theme-mode') === 'dark') {
+    return 'dark'
+  }
+  if (body && !body.hasAttribute('theme-mode') && root && !root.classList.contains('dark')) {
+    return 'light'
+  }
+  return ''
+}
+
+function readThemeFromStorage() {
+  try {
+    return resolveConfiguredTheme(localStorage.getItem(THEME_STORAGE_KEY) || 'auto')
+  } catch {
+    return resolveConfiguredTheme('auto')
+  }
+}
+
+function isThemeStorageKey(key) {
+  return key === THEME_STORAGE_KEY
+}
+
+function resolveConfiguredTheme(value) {
+  const normalized = String(value || '').toLowerCase()
+  if (/(dark|night|black|moon|semi-always-dark)/.test(normalized)) return 'dark'
+  if (/(light|day|white|sun|semi-always-light)/.test(normalized)) return 'light'
+  return ''
 }
 
 function getNewApiUserId() {
