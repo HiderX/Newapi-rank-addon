@@ -1,0 +1,14 @@
+[Unit]
+Description=NewAPI Rank Addon
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/newapi-rank-addon
+ExecStart=/home/ubuntu/.nvm/versions/node/v22.22.2/bin/node /home/ubuntu/newapi-rank-addon/server.mjs
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

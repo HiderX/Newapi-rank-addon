@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>巅峰排行榜</title>
+    <link rel="stylesheet" href="/rank-addon/assets/styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="page-head">
+        <div>
+          <h1>巅峰排行榜</h1>
+          <p class="subtle">按周期内的总额度消耗降序排列，段位按每月 7 日重置后的赛季月计算。</p>
+        </div>
+        <button class="refresh-button" id="refresh-button" type="button">刷新</button>
+      </section>
+
+      <section class="toolbar" aria-label="排行榜控制">
+        <div class="control-group period-control" id="period-controls" aria-label="排行周期"></div>
+        <label class="page-size-control" for="page-size-select">
+          <span>每页显示</span>
+          <select id="page-size-select" aria-label="每页显示人数"></select>
+        </label>
+      </section>
+
+      <section class="summary-grid" aria-label="统计摘要">
+        <article class="metric">
+          <span>总消耗</span>
+          <strong id="metric-quota">-</strong>
+        </article>
+        <article class="metric">
+          <span>请求数</span>
+          <strong id="metric-count">-</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <header class="panel-head">
+          <div>
+            <h2>用户消耗排行</h2>
+            <p>段位来自当前赛季月累计消耗。</p>
+          </div>
+        </header>
+        <div id="rank-chart" class="rank-chart" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/rank-addon/assets/app.js"></script>
+  </body>
+</html>

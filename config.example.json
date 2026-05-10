@@ -1,0 +1,15 @@
+{
+  "server": {
+    "port": 2234
+  },
+  "newApi": {
+    "baseUrl": "http://127.0.0.1:2233",
+    "authorization": "Bearer <your-admin-token>",
+    "adminUserId": "1"
+  },
+  "rank": {
+    "timezone": "Asia/Shanghai",
+    "utcOffsetMinutes": 480,
+    "seasonResetDay": 7
+  }
+}

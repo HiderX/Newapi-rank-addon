@@ -1,0 +1,4 @@
+.playwright-cli
+deployments.log
+config.json
+.DS_Store
