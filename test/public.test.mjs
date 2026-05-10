@@ -64,12 +64,14 @@ test('ranking panel copy omits username alignment text and tier badge uses compa
   assert.match(css, /\.rank-tier\s*\{[^}]*grid-column:\s*3[^}]*align-self:\s*center/s)
   assert.match(css, /\.bar-track\s*\{[^}]*grid-column:\s*4[^}]*align-self:\s*center/s)
   assert.match(css, /\.rank-value\s*\{[^}]*grid-column:\s*5[^}]*align-self:\s*center/s)
-  assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.rank-row\s*\{[\s\S]*?grid-template-columns:\s*42px var\(--rank-name-width\) var\(--tier-width\) max-content/s)
+  assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.rank-row\s*\{[\s\S]*?grid-template-columns:\s*42px minmax\(0, 1fr\) var\(--tier-width\) var\(--rank-value-width\)/s)
   assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.rank-row\s*\{[\s\S]*?align-items:\s*center/s)
   assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.rank-index\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?padding-top:\s*0/s)
   assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.rank-tier\s*\{[\s\S]*?grid-column:\s*3[\s\S]*?grid-row:\s*1/s)
   assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.bar-track\s*\{[\s\S]*?grid-column:\s*2 \/ 5[\s\S]*?grid-row:\s*2/s)
   assert.match(css, /@media \(max-width: 560px\) \{[\s\S]*?\.rank-chart\s*\{[\s\S]*?--rank-side-padding:\s*12px[\s\S]*?padding:\s*10px var\(--rank-side-padding\)/s)
+  assert.match(css, /@media \(max-width: 560px\) \{[\s\S]*?\.rank-row\s*\{[\s\S]*?--rank-value-width:\s*66px[\s\S]*?grid-template-columns:\s*36px minmax\(0, 1fr\) var\(--tier-width\) var\(--rank-value-width\)/s)
+  assert.doesNotMatch(css, /@media \(max-width: 560px\) \{[\s\S]*?--rank-name-width:\s*clamp\(58px, 18vw, 84px\)/)
 })
 
 test('ranking addon uses isolated public paths to avoid NewAPI route conflicts', async () => {

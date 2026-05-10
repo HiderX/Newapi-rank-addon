@@ -489,7 +489,8 @@ h2 {
   }
 
   .rank-row {
-    grid-template-columns: 42px var(--rank-name-width) var(--tier-width) max-content;
+    --rank-value-width: 76px;
+    grid-template-columns: 42px minmax(0, 1fr) var(--tier-width) var(--rank-value-width);
     grid-template-rows: auto auto;
     align-items: center;
     gap: 7px 9px;
@@ -506,6 +507,7 @@ h2 {
   .rank-name {
     grid-column: 2;
     grid-row: 1;
+    max-width: 100%;
   }
 
   .rank-tier {
@@ -590,9 +592,9 @@ h2 {
   }
 
   .rank-row {
-    --rank-name-width: clamp(58px, 18vw, 84px);
     --tier-width: 104px;
-    grid-template-columns: 36px var(--rank-name-width) var(--tier-width) max-content;
+    --rank-value-width: 66px;
+    grid-template-columns: 36px minmax(0, 1fr) var(--tier-width) var(--rank-value-width);
     gap: 7px 6px;
   }
 
