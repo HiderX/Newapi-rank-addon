@@ -11,12 +11,16 @@ test('ranking page keeps a manual refresh button instead of showing update time'
   assert.doesNotMatch(app, /更新于/)
 })
 
-test('ranking summary only shows total quota and request count', async () => {
+test('ranking summary shows total quota, token usage, and request count', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8')
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8')
 
   assert.match(html, /总消耗/)
+  assert.match(html, /Token 消耗/)
   assert.match(html, /请求数/)
+  assert.match(html, /id="metric-tokens"/)
+  assert.match(app, /tokens:\s*document\.querySelector\('#metric-tokens'\)/)
+  assert.match(app, /elements\.tokens\.textContent\s*=\s*formatInt\(data\.total_tokens\)/)
   assert.doesNotMatch(html, /数据条目/)
   assert.doesNotMatch(html, /用户数/)
   assert.doesNotMatch(app, /sourceRows/)

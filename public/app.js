@@ -18,6 +18,7 @@ const elements = {
   periodControls: document.querySelector('#period-controls'),
   pageSizeSelect: document.querySelector('#page-size-select'),
   quota: document.querySelector('#metric-quota'),
+  tokens: document.querySelector('#metric-tokens'),
   count: document.querySelector('#metric-count'),
   rankChart: document.querySelector('#rank-chart'),
 }
@@ -100,6 +101,7 @@ async function loadRank() {
 
 function renderDashboard(data) {
   elements.quota.textContent = formatQuota(data.total_quota)
+  elements.tokens.textContent = formatInt(data.total_tokens)
   elements.count.textContent = formatInt(data.total_count)
   renderRankChart(data.rank_rows)
 }

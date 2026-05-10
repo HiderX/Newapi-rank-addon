@@ -87,12 +87,12 @@ h2 {
 }
 
 .refresh-button {
-  min-width: 112px;
-  min-height: 34px;
+  min-width: 104px;
+  min-height: 38px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  padding: 7px 12px;
+  border-radius: 8px;
+  background: var(--surface-strong);
+  padding: 7px 14px;
   color: var(--muted);
   cursor: pointer;
   font-size: 13px;
@@ -125,8 +125,7 @@ h2 {
 }
 
 .toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: 10px;
   border-radius: 8px;
@@ -142,6 +141,18 @@ h2 {
   border-radius: 8px;
   background: #f7f2ea;
   padding: 3px;
+}
+
+.period-control {
+  flex: 0 1 auto;
+}
+
+.toolbar-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .control-button {
@@ -171,6 +182,10 @@ h2 {
   align-items: center;
   gap: 8px;
   min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  padding: 0 4px 0 10px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
@@ -178,9 +193,9 @@ h2 {
 }
 
 .page-size-control select {
-  min-width: 92px;
-  min-height: 36px;
-  border: 1px solid var(--line);
+  min-width: 82px;
+  min-height: 34px;
+  border: 0;
   border-radius: 8px;
   background: var(--surface-strong);
   color: var(--ink);
@@ -191,7 +206,7 @@ h2 {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0;
   margin-top: 14px;
   overflow: hidden;
@@ -380,11 +395,15 @@ h2 {
   }
 
   .toolbar {
-    grid-template-columns: 1fr;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-actions {
+    margin-left: 0;
   }
 
   .page-size-control {
-    justify-content: space-between;
+    justify-content: flex-end;
   }
 
   .rank-row {
@@ -418,6 +437,23 @@ h2 {
   .page-shell {
     width: min(100% - 20px, 1180px);
     padding-top: 18px;
+  }
+
+  .toolbar,
+  .toolbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .period-control,
+  .page-size-control,
+  .refresh-button {
+    width: 100%;
+  }
+
+  .page-size-control {
+    justify-content: space-between;
   }
 
   .summary-grid {
