@@ -5,28 +5,34 @@ const PERIOD_OPTIONS = [
   { label: '总排行', value: 'all' },
 ]
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+const RANK_FETCH_LIMIT = 100
+const INITIAL_VISIBLE_ROWS = 20
+const LOAD_MORE_ROWS = 20
+const SCROLL_LOAD_THRESHOLD = 280
 const QUOTA_PER_UNIT = 500000
 
 const state = {
   period: 'day',
-  pageSize: 10,
+  rankRows: [],
+  visibleRows: INITIAL_VISIBLE_ROWS,
+  maxQuota: 1,
 }
 
 const elements = {
   refreshButton: document.querySelector('#refresh-button'),
   periodControls: document.querySelector('#period-controls'),
-  pageSizeSelect: document.querySelector('#page-size-select'),
   quota: document.querySelector('#metric-quota'),
   tokens: document.querySelector('#metric-tokens'),
   count: document.querySelector('#metric-count'),
   rankChart: document.querySelector('#rank-chart'),
+  scrollHint: document.querySelector('#scroll-hint'),
 }
 
 renderControls()
 elements.refreshButton.addEventListener('click', () => {
   loadRank()
 })
+window.addEventListener('scroll', handleInfiniteScroll, { passive: true })
 loadRank()
 
 function renderControls() {
@@ -35,28 +41,14 @@ function renderControls() {
     PERIOD_OPTIONS,
     state.period,
     (option) => {
+      if (state.period === option.value) return
       state.period = option.value
       loadRank()
     },
     (option) => option.value,
     (option) => option.label
   )
-
-  elements.pageSizeSelect.replaceChildren(
-    ...PAGE_SIZE_OPTIONS.map((pageSize) => {
-      const option = document.createElement('option')
-      option.value = String(pageSize)
-      option.textContent = `${pageSize} 人`
-      option.selected = pageSize === state.pageSize
-      return option
-    })
-  )
 }
-
-elements.pageSizeSelect.addEventListener('change', () => {
-  state.pageSize = Number(elements.pageSizeSelect.value) || 10
-  loadRank()
-})
 
 function renderButtonGroup(container, options, activeValue, onSelect, getValue, getLabel) {
   container.replaceChildren()
@@ -76,9 +68,10 @@ function renderButtonGroup(container, options, activeValue, onSelect, getValue, 
 
 async function loadRank() {
   setRefreshState('loading')
+  state.visibleRows = INITIAL_VISIBLE_ROWS
   const params = new URLSearchParams({
     period: state.period,
-    page_size: String(state.pageSize),
+    page_size: String(RANK_FETCH_LIMIT),
   })
 
   try {
@@ -100,24 +93,29 @@ async function loadRank() {
 }
 
 function renderDashboard(data) {
+  state.rankRows = Array.isArray(data.rank_rows) ? data.rank_rows : []
+  state.maxQuota = Math.max(...state.rankRows.map((row) => Number(row.quota) || 0), 1)
   elements.quota.textContent = formatQuota(data.total_quota)
   elements.tokens.textContent = formatInt(data.total_tokens)
   elements.count.textContent = formatInt(data.total_count)
-  renderRankChart(data.rank_rows)
+  renderRankChart()
 }
 
-function renderRankChart(rows) {
+function renderRankChart() {
   elements.rankChart.replaceChildren()
+  const rows = state.rankRows
   if (!rows.length) {
     elements.rankChart.innerHTML = '<div class="empty">暂无排行数据</div>'
+    renderScrollHint(0)
     return
   }
 
-  const maxQuota = Math.max(...rows.map((row) => Number(row.quota) || 0), 1)
-  for (const row of rows) {
+  // 一次从服务端取最多 100 人，页面只按滚动位置逐批揭示，避免移动端首屏被长列表撑乱。
+  const visibleRows = rows.slice(0, state.visibleRows)
+  for (const row of visibleRows) {
     const item = document.createElement('div')
     item.className = 'rank-row'
-    const percentage = Math.max(2, ((Number(row.quota) || 0) / maxQuota) * 100)
+    const percentage = Math.max(2, ((Number(row.quota) || 0) / state.maxQuota) * 100)
     const tier = row.tier || {}
     const tierLabel = formatTier(tier)
     item.innerHTML = `
@@ -129,10 +127,32 @@ function renderRankChart(rows) {
     `
     elements.rankChart.append(item)
   }
+  renderScrollHint(rows.length)
+}
+
+function handleInfiniteScroll() {
+  if (state.visibleRows >= state.rankRows.length) return
+
+  const scrollBottom = window.scrollY + window.innerHeight
+  const triggerPoint = document.documentElement.scrollHeight - SCROLL_LOAD_THRESHOLD
+  if (scrollBottom < triggerPoint) return
+
+  state.visibleRows = Math.min(state.visibleRows + LOAD_MORE_ROWS, state.rankRows.length)
+  renderRankChart()
+}
+
+function renderScrollHint(totalRows) {
+  if (!elements.scrollHint) return
+
+  const hasMoreRows = state.visibleRows < totalRows
+  elements.scrollHint.textContent = hasMoreRows ? '继续向下滚动查看更多' : ''
+  elements.scrollHint.hidden = !hasMoreRows
 }
 
 function renderError(message) {
+  state.rankRows = []
   elements.rankChart.innerHTML = `<div class="error">${escapeHtml(message)}</div>`
+  renderScrollHint(0)
 }
 
 function setRefreshState(state) {

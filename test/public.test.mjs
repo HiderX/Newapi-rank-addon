@@ -27,13 +27,32 @@ test('ranking summary shows total quota, token usage, and request count', async 
   assert.doesNotMatch(app, /userCount/)
 })
 
-test('ranking panel copy omits username alignment text and tier badge has fixed width', async () => {
+test('ranking controls remove page-size select and use scroll reveal', async () => {
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8')
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8')
+  const css = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8')
+
+  assert.doesNotMatch(html, /page-size-select/)
+  assert.doesNotMatch(html, /每页显示/)
+  assert.doesNotMatch(app, /PAGE_SIZE_OPTIONS/)
+  assert.doesNotMatch(app, /pageSizeSelect/)
+  assert.match(app, /INITIAL_VISIBLE_ROWS/)
+  assert.match(app, /handleInfiniteScroll/)
+  assert.match(app, /page_size:\s*String\(RANK_FETCH_LIMIT\)/)
+  assert.match(css, /\.scroll-hint/)
+  assert.match(css, /\.refresh-button\s*\{[^}]*min-width:\s*68px/s)
+  assert.match(css, /@media \(max-width: 560px\) \{[\s\S]*?\.period-control\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/)
+})
+
+test('ranking panel copy omits username alignment text and tier badge uses compact fixed width', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8')
   const css = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8')
 
   assert.doesNotMatch(html, /用户名左对齐/)
-  assert.match(css, /\.rank-tier\s*\{[^}]*width:\s*136px/s)
+  assert.match(css, /--tier-width:\s*112px/)
   assert.match(css, /\.rank-tier\s*\{[^}]*text-align:\s*center/s)
+  assert.match(css, /grid-template-columns:\s*52px minmax\(120px, 220px\) var\(--tier-width\)/)
+  assert.match(css, /@media \(max-width: 900px\) \{[\s\S]*?\.bar-track\s*\{[\s\S]*?grid-row:\s*3/s)
 })
 
 test('ranking addon uses isolated public paths to avoid NewAPI route conflicts', async () => {

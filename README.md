@@ -6,6 +6,8 @@
 
 ![巅峰排行榜桌面端截图](docs/screenshots/rank-desktop.png)
 
+![巅峰排行榜移动端截图](docs/screenshots/rank-mobile.png)
+
 ## 启动
 
 先按实际环境修改项目根目录的 `config.json`：
@@ -70,13 +72,14 @@ https://xxx.aaa.bb/rank-addon/* -> http://127.0.0.1:2234/rank-addon/*
 ## 接口
 
 ```text
-GET /rank-addon/api/users?period=day&page_size=10
+GET /rank-addon/api/users?period=day&page_size=100
 ```
 
 `period` 支持 `day`、`week`、`month`、`all`，分别对应日排行、周排行、月排行和总排行。
-其中 `month` 不是自然月，而是每月 7 日 00:00 重置的赛季月。`page_size`
-支持最多返回 100 个用户。返回数据已按用户聚合并按总 `quota` 降序排序，
-每行会包含按当前赛季月消耗计算的 `tier` 段位字段。
+其中 `month` 不是自然月，而是每月 7 日 00:00 重置的赛季月。页面默认请求
+`page_size=100`，然后在浏览器里按滚动位置逐批展示；接口本身仍支持最多返回
+100 个用户。返回数据已按用户聚合并按总 `quota` 降序排序，每行会包含按当前
+赛季月消耗计算的 `tier` 段位字段。
 
 周排行通常统计最近 7 天；如果当前处于赛季开始后的第一周，周排行起点会钳制到
 赛季开始日，避免统计上个赛季的数据。

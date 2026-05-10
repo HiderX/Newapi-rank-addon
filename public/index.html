@@ -18,10 +18,6 @@
       <section class="toolbar" aria-label="排行榜控制">
         <div class="control-group period-control" id="period-controls" aria-label="排行周期"></div>
         <div class="toolbar-actions">
-          <label class="page-size-control" for="page-size-select">
-            <span>每页显示</span>
-            <select id="page-size-select" aria-label="每页显示人数"></select>
-          </label>
           <button class="refresh-button" id="refresh-button" type="button">刷新</button>
         </div>
       </section>
@@ -49,6 +45,7 @@
           </div>
         </header>
         <div id="rank-chart" class="rank-chart" aria-live="polite"></div>
+        <div id="scroll-hint" class="scroll-hint" aria-live="polite"></div>
       </section>
     </main>
 
