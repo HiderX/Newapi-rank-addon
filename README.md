@@ -101,9 +101,9 @@ GET /rank-addon/api/users?period=day&page_size=100
 
 `period` supports `day`, `week`, `month`, and `all`, corresponding to daily, weekly, monthly, and all-time rankings. `month` is a season month that resets at 00:00 on the 7th day of each month, not a calendar month. The page requests `page_size=100` by default and reveals rows progressively while scrolling. The API itself still returns up to 100 users. Response rows are aggregated by user, sorted by total `quota` in descending order, and each row includes a `tier` field calculated from the current season-month usage.
 
-周排行通常统计最近 7 天；如果当前处于赛季开始后的第一周，周排行起点会钳制到赛季开始日，避免统计上个赛季的数据。
+周排行按 `rank.utcOffsetMinutes` 对应时区的自然周统计，默认使用 `Asia/Shanghai` 口径，即周一 00:00 到当前请求时间。
 
-The weekly ranking normally covers the latest 7 days. During the first week of a season, its start time is clamped to the season start date to avoid including previous-season data.
+The weekly ranking uses the natural week in the timezone represented by `rank.utcOffsetMinutes`. By default, it follows `Asia/Shanghai`, from Monday 00:00 to the current request time.
 
 段位换算使用 0-1520 刀对应 0-200 星：前 100 星对应青铜到星耀，100 星后进入王者细分，1520 刀对应传奇王者 100 星。页面展示使用 `至尊星耀III`、`最强王者⭐3` 这种格式；只有王者段位显示星数。
 

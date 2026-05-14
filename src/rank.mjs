@@ -42,11 +42,7 @@ export function getPeriodRange(period = 'day', now = Math.floor(Date.now() / 100
     }
   }
   if (normalized === 'week') {
-    return {
-      start: Math.max(end - PERIOD_DAYS.get(normalized) * DAY_SECONDS, getSeasonMonthStart(end, options)),
-      end,
-      period: normalized,
-    }
+    return { start: getLocalWeekStart(end, options), end, period: normalized }
   }
 
   return {
@@ -198,6 +194,15 @@ function getLocalDayStart(timestamp, options = {}) {
   const offsetSeconds = offsetMinutes * 60
   const localDayIndex = Math.floor((timestamp + offsetSeconds) / DAY_SECONDS)
   return localDayIndex * DAY_SECONDS - offsetSeconds
+}
+
+function getLocalWeekStart(timestamp, options = {}) {
+  const dayStart = getLocalDayStart(timestamp, options)
+  const offsetMinutes = Number(options.utcOffsetMinutes ?? RESET_UTC_OFFSET_MINUTES)
+  const localDayStart = dayStart + offsetMinutes * 60
+  const dayOfWeek = new Date(localDayStart * 1000).getUTCDay()
+  const daysSinceMonday = (dayOfWeek + 6) % 7
+  return dayStart - daysSinceMonday * DAY_SECONDS
 }
 
 function formatTierDisplay(label, stars, showStars) {

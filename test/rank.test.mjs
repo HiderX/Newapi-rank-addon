@@ -123,7 +123,7 @@ test('getPeriodRange maps rank periods to upstream timestamp windows', () => {
     period: 'day',
   })
   assert.deepEqual(getPeriodRange('week', now), {
-    start: Date.UTC(2026, 4, 6, 16, 0, 0) / 1000,
+    start: Date.UTC(2026, 4, 3, 16, 0, 0) / 1000,
     end: now,
     period: 'week',
   })
@@ -176,18 +176,18 @@ test('getPeriodRange resets monthly ranking on the 7th at Asia/Shanghai midnight
   })
 })
 
-test('getPeriodRange clamps weekly ranking to season start during the first season week', () => {
-  const seasonHeadWeek = Date.UTC(2026, 4, 9, 4, 0, 0) / 1000
-  const regularWeek = Date.UTC(2026, 4, 20, 4, 0, 0) / 1000
+test('getPeriodRange resets weekly ranking at Asia/Shanghai natural week start', () => {
+  const beforeMondayMidnight = Date.UTC(2026, 4, 10, 15, 30, 0) / 1000
+  const afterMondayMidnight = Date.UTC(2026, 4, 10, 16, 30, 0) / 1000
 
-  assert.deepEqual(getPeriodRange('week', seasonHeadWeek), {
-    start: Date.UTC(2026, 4, 6, 16, 0, 0) / 1000,
-    end: seasonHeadWeek,
+  assert.deepEqual(getPeriodRange('week', beforeMondayMidnight), {
+    start: Date.UTC(2026, 4, 3, 16, 0, 0) / 1000,
+    end: beforeMondayMidnight,
     period: 'week',
   })
-  assert.deepEqual(getPeriodRange('week', regularWeek), {
-    start: regularWeek - 7 * 86400,
-    end: regularWeek,
+  assert.deepEqual(getPeriodRange('week', afterMondayMidnight), {
+    start: Date.UTC(2026, 4, 10, 16, 0, 0) / 1000,
+    end: afterMondayMidnight,
     period: 'week',
   })
 })
