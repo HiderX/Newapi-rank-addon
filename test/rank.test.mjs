@@ -111,6 +111,32 @@ test('aggregateUserRank groups renamed users by user id and shows the newest use
   assert.equal(result.totalQuota, 800)
 })
 
+test('aggregateUserRank ignores non-discriminating upstream user ids and falls back to username', () => {
+  const result = aggregateUserRank(
+    [
+      { id: 0, user_id: 0, username: 'alice', quota: 100, count: 1, token_used: 10 },
+      { id: 0, user_id: 0, username: 'bob', quota: 300, count: 2, token_used: 20 },
+      { id: 0, user_id: 0, username: 'alice', quota: 50, count: 3, token_used: 30 },
+    ],
+    { limit: 10 }
+  )
+
+  assert.deepEqual(
+    result.rankRows.map((row) => ({
+      rank: row.rank,
+      username: row.username,
+      quota: row.quota,
+      count: row.count,
+      token_used: row.token_used,
+    })),
+    [
+      { rank: 1, username: 'bob', quota: 300, count: 2, token_used: 20 },
+      { rank: 2, username: 'alice', quota: 150, count: 4, token_used: 40 },
+    ]
+  )
+  assert.equal(result.userCount, 2)
+})
+
 test('aggregateUserRank limits the returned ranking rows without changing total quota', () => {
   const result = aggregateUserRank(rows, { limit: 2 })
 
@@ -172,6 +198,30 @@ test('presentRankRows matches monthly tier quota by user id after a username cha
 
   assert.equal(presented[0].name, 'new-name')
   assert.equal(presented[0].tier.display, '最强王者⭐0')
+})
+
+test('presentRankRows matches tier quota by username fallback when upstream user ids are non-discriminating', () => {
+  const { rankRows } = aggregateUserRank(
+    [
+      { id: 0, user_id: 0, username: 'alice', quota: quotaUsd(1) },
+      { id: 0, user_id: 0, username: 'bob', quota: quotaUsd(2) },
+    ],
+    { limit: 10 }
+  )
+  const tierQuotaByUserId = buildUserQuotaMap([
+    { id: 0, user_id: 0, username: 'alice', quota: quotaUsd(760) },
+    { id: 0, user_id: 0, username: 'bob', quota: quotaUsd(380) },
+  ])
+
+  const presented = presentRankRows(rankRows, { tierQuotaByUserId })
+
+  assert.deepEqual(
+    presented.map((row) => ({ name: row.name, tier: row.tier.display })),
+    [
+      { name: 'bob', tier: '永恒钻石V' },
+      { name: 'alice', tier: '最强王者⭐0' },
+    ]
+  )
 })
 
 test('presentRankRows falls back to current row quota when monthly tier quota is missing', () => {

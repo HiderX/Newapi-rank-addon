@@ -105,13 +105,15 @@ export function getPeriodRange(period = 'day', now = Math.floor(Date.now() / 100
 
 export function aggregateUserRank(rows, options = {}) {
   const limit = normalizeLimit(options.limit, options.maxLimit)
+  const sourceRows = Array.isArray(rows) ? rows : []
+  const useStableUserId = shouldUseStableUserId(sourceRows)
   const totals = new Map()
   let rowIndex = 0
 
-  // 核心流程：接口返回的是“用户 + 时间桶”数据，必须按用户 ID 合并，避免用户改名后拆成多行。
-  for (const row of Array.isArray(rows) ? rows : []) {
+  // 核心流程：优先按有效用户 ID 合并；NewAPI 数据看板给零值 ID 时回退用户名，避免全量合并。
+  for (const row of sourceRows) {
     const username = getUsername(row)
-    const identity = getUserIdentity(row, username)
+    const identity = getUserIdentity(row, username, { useStableUserId })
     const current = totals.get(identity.key) || {
       username,
       quota: 0,
@@ -236,10 +238,12 @@ export function buildUserQuotaMap(rows) {
 
 export function buildInheritedStarsMap(rows, currentSeasonStart, options = {}) {
   const currentStart = normalizeTimestamp(currentSeasonStart)
+  const sourceRows = Array.isArray(rows) ? rows : []
+  const useStableUserId = shouldUseStableUserId(sourceRows)
   const seasonQuotaByUserId = new Map()
 
   // 核心流程：历史数据按用户和赛季切桶，找到每个用户最近一次有消耗的历史赛季。
-  for (const row of Array.isArray(rows) ? rows : []) {
+  for (const row of sourceRows) {
     const timestamp = Number(row?.created_at ?? row?.timestamp)
     if (!Number.isFinite(timestamp) || timestamp >= currentStart) continue
     const quota = Number(row?.quota) || 0
@@ -248,7 +252,7 @@ export function buildInheritedStarsMap(rows, currentSeasonStart, options = {}) {
     const seasonStart = getSeasonMonthStart(timestamp, options)
     if (seasonStart >= currentStart) continue
 
-    const identity = getUserIdentity(row)
+    const identity = getUserIdentity(row, getUsername(row), { useStableUserId })
     const key = `${identity.key}:${seasonStart}`
     const current = seasonQuotaByUserId.get(key) || {
       userKey: identity.key,
@@ -278,9 +282,9 @@ export function buildInheritedStarsMap(rows, currentSeasonStart, options = {}) {
   return inheritedStarsByUserId
 }
 
-function getUserIdentity(row, username = getUsername(row)) {
+function getUserIdentity(row, username = getUsername(row), options = {}) {
   const userId = row?.user_id ?? row?.userId
-  if (userId !== undefined && userId !== null && String(userId).trim() !== '') {
+  if (options.useStableUserId !== false && isUsableUserId(userId)) {
     return {
       key: String(userId),
       userId,
@@ -291,6 +295,29 @@ function getUserIdentity(row, username = getUsername(row)) {
     key: `username:${username}`,
     userId: undefined,
   }
+}
+
+function shouldUseStableUserId(rows) {
+  const userIds = new Set()
+
+  for (const row of rows) {
+    const userId = row?.user_id ?? row?.userId
+    if (isUsableUserId(userId)) {
+      userIds.add(String(userId))
+    }
+  }
+
+  // NewAPI /api/data/users 当前按 username 聚合，返回的 user_id 可能是无区分度零值。
+  // 只有正的用户 ID 才采用；零值回退到 username，避免全量合并成一个人。
+  return userIds.size > 0
+}
+
+function isUsableUserId(userId) {
+  if (userId === undefined || userId === null) return false
+  const value = String(userId).trim()
+  if (!value) return false
+  const number = Number(value)
+  return Number.isFinite(number) ? number > 0 : value !== '0'
 }
 
 function getUsername(row) {
