@@ -97,9 +97,9 @@ When the ranking API is requested, the add-on first forwards the browser's New A
 GET /rank-addon/api/users?period=day&page_size=100
 ```
 
-`period` 支持 `day`、`week`、`month`、`all`，分别对应日排行、周排行、月排行和总排行。其中 `month` 不是自然月，而是每月 7 日 00:00 重置的赛季月。页面默认请求 `page_size=100`，然后在浏览器里按滚动位置逐批展示；接口本身仍支持最多返回 100 个用户。返回数据已按用户聚合并按总 `quota` 降序排序，每行会包含按当前赛季月消耗计算的 `tier` 段位字段。
+`period` 支持 `day`、`week`、`month`、`all`，分别对应日排行、周排行、月排行和总排行。其中 `month` 不是自然月，而是每月 7 日 00:00 重置的赛季月。页面默认请求 `page_size=100`，然后在浏览器里按滚动位置逐批展示；接口本身仍支持最多返回 100 个用户。返回数据已按用户 ID 聚合并按总 `quota` 降序排序，展示名取该用户数据中最新的 `username`，每行会包含按当前赛季月消耗计算的 `tier` 段位字段。
 
-`period` supports `day`, `week`, `month`, and `all`, corresponding to daily, weekly, monthly, and all-time rankings. `month` is a season month that resets at 00:00 on the 7th day of each month, not a calendar month. The page requests `page_size=100` by default and reveals rows progressively while scrolling. The API itself still returns up to 100 users. Response rows are aggregated by user, sorted by total `quota` in descending order, and each row includes a `tier` field calculated from the current season-month usage.
+`period` supports `day`, `week`, `month`, and `all`, corresponding to daily, weekly, monthly, and all-time rankings. `month` is a season month that resets at 00:00 on the 7th day of each month, not a calendar month. The page requests `page_size=100` by default and reveals rows progressively while scrolling. The API itself still returns up to 100 users. Response rows are aggregated by user ID, sorted by total `quota` in descending order, display the latest `username` found for that user, and each row includes a `tier` field calculated from the current season-month usage.
 
 周排行按 `rank.utcOffsetMinutes` 对应时区的自然周统计，默认使用 `Asia/Shanghai` 口径，即周一 00:00 到当前请求时间。
 

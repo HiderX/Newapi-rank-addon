@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   aggregateUserRank,
+  buildUserQuotaMap,
   calculateUserTier,
   getPeriodRange,
   presentRankRows,
@@ -40,7 +41,7 @@ const rows = [
   },
 ]
 
-test('aggregateUserRank groups quota rows by username and sorts by total quota descending', () => {
+test('aggregateUserRank groups quota rows by username when user id is unavailable and sorts by total quota descending', () => {
   const result = aggregateUserRank(rows, { limit: 10 })
 
   assert.deepEqual(
@@ -58,6 +59,55 @@ test('aggregateUserRank groups quota rows by username and sorts by total quota d
     ]
   )
   assert.equal(result.totalQuota, 700)
+})
+
+test('aggregateUserRank groups renamed users by user id and shows the newest username', () => {
+  const result = aggregateUserRank(
+    [
+      {
+        user_id: 7,
+        username: 'old-name',
+        created_at: 1000,
+        quota: 100,
+        count: 1,
+        token_used: 10,
+      },
+      {
+        user_id: 8,
+        username: 'other',
+        created_at: 1500,
+        quota: 500,
+        count: 1,
+        token_used: 5,
+      },
+      {
+        user_id: 7,
+        username: 'new-name',
+        created_at: 2000,
+        quota: 200,
+        count: 2,
+        token_used: 20,
+      },
+    ],
+    { limit: 10 }
+  )
+
+  assert.deepEqual(
+    result.rankRows.map((row) => ({
+      rank: row.rank,
+      user_id: row.user_id,
+      username: row.username,
+      quota: row.quota,
+      count: row.count,
+      token_used: row.token_used,
+    })),
+    [
+      { rank: 1, user_id: 8, username: 'other', quota: 500, count: 1, token_used: 5 },
+      { rank: 2, user_id: 7, username: 'new-name', quota: 300, count: 3, token_used: 30 },
+    ]
+  )
+  assert.equal(result.userCount, 2)
+  assert.equal(result.totalQuota, 800)
 })
 
 test('aggregateUserRank limits the returned ranking rows without changing total quota', () => {
@@ -85,10 +135,10 @@ test('aggregateUserRank supports page sizes up to 100 users', () => {
 test('presentRankRows keeps real usernames and adds monthly tier data', () => {
   const { rankRows } = aggregateUserRank(rows, { limit: 3 })
   const presented = presentRankRows(rankRows, {
-    tierQuotaByUsername: new Map([
-      ['alice', quotaUsd(760)],
-      ['bob', quotaUsd(380)],
-      ['carol', quotaUsd(0)],
+    tierQuotaByUserId: new Map([
+      ['username:alice', quotaUsd(760)],
+      ['username:bob', quotaUsd(380)],
+      ['username:carol', quotaUsd(0)],
     ]),
   })
 
@@ -105,6 +155,22 @@ test('presentRankRows keeps real usernames and adds monthly tier data', () => {
     ]
   )
   assert.equal('medal' in presented[0], false)
+})
+
+test('presentRankRows matches monthly tier quota by user id after a username change', () => {
+  const { rankRows } = aggregateUserRank(
+    [{ user_id: 7, username: 'new-name', quota: quotaUsd(1) }],
+    { limit: 10 }
+  )
+  const tierQuotaByUserId = buildUserQuotaMap([
+    { user_id: 7, username: 'old-name', created_at: 1000, quota: quotaUsd(300) },
+    { user_id: 7, username: 'new-name', created_at: 2000, quota: quotaUsd(460) },
+  ])
+
+  const presented = presentRankRows(rankRows, { tierQuotaByUserId })
+
+  assert.equal(presented[0].name, 'new-name')
+  assert.equal(presented[0].tier.display, '最强王者⭐0')
 })
 
 test('presentRankRows falls back to current row quota when monthly tier quota is missing', () => {

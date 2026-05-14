@@ -107,9 +107,9 @@ async function handleRankApi(url, req, res) {
     return
   }
   const tierRows = tierResult.rows
-  const tierQuotaByUsername = buildUserQuotaMap(tierRows)
+  const tierQuotaByUserId = buildUserQuotaMap(tierRows)
   const aggregate = aggregateUserRank(rawRows, { limit: pageSize })
-  const rankRows = presentRankRows(aggregate.rankRows, { tierQuotaByUsername })
+  const rankRows = presentRankRows(aggregate.rankRows, { tierQuotaByUserId })
 
   sendJson(res, 200, {
     success: true,

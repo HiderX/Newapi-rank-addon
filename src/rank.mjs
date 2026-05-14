@@ -55,21 +55,35 @@ export function getPeriodRange(period = 'day', now = Math.floor(Date.now() / 100
 export function aggregateUserRank(rows, options = {}) {
   const limit = normalizeLimit(options.limit, options.maxLimit)
   const totals = new Map()
+  let rowIndex = 0
 
-  // 核心流程：接口返回的是“用户 + 时间桶”数据，这里先按用户名合并成排行榜口径。
+  // 核心流程：接口返回的是“用户 + 时间桶”数据，必须按用户 ID 合并，避免用户改名后拆成多行。
   for (const row of Array.isArray(rows) ? rows : []) {
-    const username = String(row?.username || 'unknown')
-    const current = totals.get(username) || {
+    const username = getUsername(row)
+    const identity = getUserIdentity(row, username)
+    const current = totals.get(identity.key) || {
       username,
       quota: 0,
       count: 0,
       token_used: 0,
+      _usernameFreshness: -Infinity,
+    }
+    if (identity.userId !== undefined) {
+      current.user_id = identity.userId
     }
 
     current.quota += Number(row?.quota) || 0
     current.count += Number(row?.count) || 0
     current.token_used += Number(row?.token_used) || 0
-    totals.set(username, current)
+
+    const usernameFreshness = getUsernameFreshness(row, rowIndex)
+    if (usernameFreshness >= current._usernameFreshness) {
+      current.username = username
+      current._usernameFreshness = usernameFreshness
+    }
+
+    totals.set(identity.key, current)
+    rowIndex += 1
   }
 
   const sorted = Array.from(totals.values()).sort((a, b) => b.quota - a.quota)
@@ -78,7 +92,7 @@ export function aggregateUserRank(rows, options = {}) {
   const totalTokens = sorted.reduce((sum, row) => sum + row.token_used, 0)
 
   return {
-    rankRows: sorted.slice(0, limit).map((row, index) => ({
+    rankRows: sorted.slice(0, limit).map(({ _usernameFreshness, ...row }, index) => ({
       rank: index + 1,
       ...row,
     })),
@@ -90,12 +104,13 @@ export function aggregateUserRank(rows, options = {}) {
 }
 
 export function presentRankRows(rankRows, options = {}) {
-  const tierQuotaByUsername = options.tierQuotaByUsername
+  const tierQuotaByUserId = options.tierQuotaByUserId
   return rankRows.map((row) => {
-    const username = String(row?.username || 'unknown')
+    const username = getUsername(row)
+    const identity = getUserIdentity(row, username)
     const tierQuota =
-      tierQuotaByUsername instanceof Map && tierQuotaByUsername.has(username)
-        ? tierQuotaByUsername.get(username)
+      tierQuotaByUserId instanceof Map && tierQuotaByUserId.has(identity.key)
+        ? tierQuotaByUserId.get(identity.key)
         : row?.quota
 
     return {
@@ -154,7 +169,31 @@ export function buildUserQuotaMap(rows) {
     limit: Number.MAX_SAFE_INTEGER,
     maxLimit: Number.MAX_SAFE_INTEGER,
   })
-  return new Map(aggregate.rankRows.map((row) => [row.username, row.quota]))
+  return new Map(aggregate.rankRows.map((row) => [getUserIdentity(row).key, row.quota]))
+}
+
+function getUserIdentity(row, username = getUsername(row)) {
+  const userId = row?.user_id ?? row?.userId
+  if (userId !== undefined && userId !== null && String(userId).trim() !== '') {
+    return {
+      key: String(userId),
+      userId,
+    }
+  }
+
+  return {
+    key: `username:${username}`,
+    userId: undefined,
+  }
+}
+
+function getUsername(row) {
+  return String(row?.username || 'unknown')
+}
+
+function getUsernameFreshness(row, fallbackOrder) {
+  const timestamp = Number(row?.created_at ?? row?.timestamp)
+  return Number.isFinite(timestamp) ? timestamp : fallbackOrder
 }
 
 function normalizeLimit(limit, maxLimit = 100) {
