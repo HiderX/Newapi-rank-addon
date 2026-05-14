@@ -14,6 +14,7 @@ const THEME_STORAGE_KEY = 'theme-mode'
 
 const state = {
   period: 'day',
+  periodData: {},
   rankRows: [],
   visibleRows: INITIAL_VISIBLE_ROWS,
   maxQuota: 1,
@@ -32,10 +33,10 @@ const elements = {
 installThemeSync()
 renderControls()
 elements.refreshButton.addEventListener('click', () => {
-  loadRank()
+  loadRankBundle({ force: true })
 })
 window.addEventListener('scroll', handleInfiniteScroll, { passive: true })
-loadRank()
+loadRankBundle()
 
 function renderControls() {
   renderButtonGroup(
@@ -45,7 +46,7 @@ function renderControls() {
     (option) => {
       if (state.period === option.value) return
       state.period = option.value
-      loadRank()
+      renderCurrentPeriod()
     },
     (option) => option.value,
     (option) => option.label
@@ -68,16 +69,16 @@ function renderButtonGroup(container, options, activeValue, onSelect, getValue, 
   }
 }
 
-async function loadRank() {
+async function loadRankBundle(options = {}) {
   setRefreshState('loading')
   state.visibleRows = INITIAL_VISIBLE_ROWS
   const params = new URLSearchParams({
-    period: state.period,
     page_size: String(RANK_FETCH_LIMIT),
   })
+  if (options.force) params.set('refresh', '1')
 
   try {
-    const res = await fetch(`/rank-addon/api/users?${params}`, {
+    const res = await fetch(`/rank-addon/api/users/bundle?${params}`, {
       headers: {
         'New-Api-User': getNewApiUserId(),
       },
@@ -86,12 +87,27 @@ async function loadRank() {
     if (!res.ok || !payload.success) {
       throw new Error(payload.message || `请求失败：${res.status}`)
     }
-    renderDashboard(payload.data)
+    state.periodData = payload.data?.periods || {}
+    renderCurrentPeriod()
     setRefreshState('idle')
   } catch (error) {
     renderError(error instanceof Error ? error.message : '加载失败')
     setRefreshState('error')
   }
+}
+
+function renderCurrentPeriod() {
+  state.visibleRows = INITIAL_VISIBLE_ROWS
+  const data = state.periodData[state.period]
+  if (!data) {
+    renderError('暂无排行数据')
+    return
+  }
+  if (data?.ok === false) {
+    renderError(data.message || '当前周期排行加载失败')
+    return
+  }
+  renderDashboard(data)
 }
 
 function renderDashboard(data) {
@@ -170,6 +186,10 @@ function renderScrollHint(totalRows) {
 
 function renderError(message) {
   state.rankRows = []
+  state.maxQuota = 1
+  elements.quota.textContent = formatQuota(0)
+  elements.tokens.textContent = formatInt(0)
+  elements.count.textContent = formatInt(0)
   elements.rankChart.innerHTML = `<div class="error">${escapeHtml(message)}</div>`
   renderScrollHint(0)
 }

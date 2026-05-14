@@ -16,6 +16,10 @@ An independent ranking page and proxy service for New API, designed to run witho
 
 ## 启动 / Getting Started
 
+运行环境需要 Node.js 22.13.0 或更高版本，因为服务端使用内置的 `node:sqlite` 持久化缓存和段位继承结果。
+
+Node.js 22.13.0 or newer is required because the server uses the built-in `node:sqlite` module to persist cache and tier inheritance data.
+
 先按实际环境修改项目根目录的 `config.json`：
 
 Edit `config.json` in the project root for your environment first:
@@ -34,6 +38,24 @@ Edit `config.json` in the project root for your environment first:
     "timezone": "Asia/Shanghai",
     "utcOffsetMinutes": 480,
     "seasonResetDay": 7
+  },
+  "cache": {
+    "freshSeconds": 60,
+    "allFreshSeconds": 300,
+    "staleSeconds": 600
+  },
+  "storage": {
+    "sqlitePath": "./data/rank-addon.sqlite"
+  },
+  "webdav": {
+    "enabled": false,
+    "baseUrl": "https://example.com/dav",
+    "username": "",
+    "password": "",
+    "targetFolder": "newapi-rank-addon",
+    "backupIntervalSeconds": 21600,
+    "retention": 20,
+    "timeoutSeconds": 30
   }
 }
 ```
@@ -82,10 +104,32 @@ This lets the browser send the New API cookies automatically, so the add-on can 
   `rank.utcOffsetMinutes`: UTC offset in minutes for ranking windows, `480` for Asia/Shanghai
 - `rank.seasonResetDay`：赛季月每月几号重置，当前为 `7`
   `rank.seasonResetDay`: day of month when the season month resets, currently `7`
+- `cache.freshSeconds`：日/周/月排行服务端缓存新鲜期，默认 `60`
+  `cache.freshSeconds`: server-side fresh cache TTL for day/week/month rankings, default `60`
+- `cache.allFreshSeconds`：总排行服务端缓存新鲜期，默认 `300`
+  `cache.allFreshSeconds`: server-side fresh cache TTL for all-time rankings, default `300`
+- `cache.staleSeconds`：缓存过期后允许返回旧数据并后台刷新的窗口，默认 `600`
+  `cache.staleSeconds`: stale-while-refresh window after fresh TTL expires, default `600`
+- `storage.sqlitePath`：SQLite 数据库路径，用于缓存响应和持久化段位继承结果，默认 `./data/rank-addon.sqlite`
+  `storage.sqlitePath`: SQLite database path for response cache and persisted tier inheritance, default `./data/rank-addon.sqlite`
+- `webdav.enabled`：是否启用 SQLite 快照备份，默认 `false`
+  `webdav.enabled`: enable SQLite snapshot backup, default `false`
+- `webdav.baseUrl`：WebDAV 根地址
+  `webdav.baseUrl`: WebDAV base URL
+- `webdav.username` / `webdav.password`：WebDAV Basic Auth 凭据
+  `webdav.username` / `webdav.password`: WebDAV Basic Auth credentials
+- `webdav.targetFolder`：WebDAV 目标文件夹，不存在时会自动逐级创建
+  `webdav.targetFolder`: target WebDAV folder; missing folders are created automatically
+- `webdav.backupIntervalSeconds`：备份周期，默认 `21600` 秒
+  `webdav.backupIntervalSeconds`: backup interval in seconds, default `21600`
+- `webdav.retention`：保留数量配置，默认 `20`
+  `webdav.retention`: retention setting, default `20`
+- `webdav.timeoutSeconds`：WebDAV 请求超时，默认 `30`
+  `webdav.timeoutSeconds`: WebDAV request timeout in seconds, default `30`
 
-`PORT`、`NEW_API_BASE`、`NEW_API_AUTHORIZATION`、`NEW_API_USER`、`RANK_TIMEZONE`、`RANK_UTC_OFFSET_MINUTES`、`RANK_SEASON_RESET_DAY` 仍可作为临时环境变量覆盖配置，但 systemd 部署默认只读 `config.json`。
+`PORT`、`NEW_API_BASE`、`NEW_API_AUTHORIZATION`、`NEW_API_USER`、`RANK_TIMEZONE`、`RANK_UTC_OFFSET_MINUTES`、`RANK_SEASON_RESET_DAY`、`RANK_CACHE_FRESH_SECONDS`、`RANK_CACHE_ALL_FRESH_SECONDS`、`RANK_CACHE_STALE_SECONDS`、`RANK_SQLITE_PATH` 和 `RANK_WEBDAV_*` 仍可作为临时环境变量覆盖配置，但 systemd 部署默认只读 `config.json`。
 
-`PORT`, `NEW_API_BASE`, `NEW_API_AUTHORIZATION`, `NEW_API_USER`, `RANK_TIMEZONE`, `RANK_UTC_OFFSET_MINUTES`, and `RANK_SEASON_RESET_DAY` can still override the config for one-off runs, while the systemd deployment reads `config.json` by default.
+`PORT`, `NEW_API_BASE`, `NEW_API_AUTHORIZATION`, `NEW_API_USER`, `RANK_TIMEZONE`, `RANK_UTC_OFFSET_MINUTES`, `RANK_SEASON_RESET_DAY`, `RANK_CACHE_FRESH_SECONDS`, `RANK_CACHE_ALL_FRESH_SECONDS`, `RANK_CACHE_STALE_SECONDS`, `RANK_SQLITE_PATH`, and `RANK_WEBDAV_*` can still override the config for one-off runs, while the systemd deployment reads `config.json` by default.
 
 访问排行榜接口时，外挂服务会先把浏览器传入的 New API Cookie 转发到 `/api/user/self` 校验登录态。未登录用户只能看到页面骨架，不能获取排行榜数据。
 
@@ -95,11 +139,12 @@ When the ranking API is requested, the add-on first forwards the browser's New A
 
 ```text
 GET /rank-addon/api/users?period=day&page_size=100
+GET /rank-addon/api/users/bundle?page_size=100
 ```
 
-`period` 支持 `day`、`week`、`month`、`all`，分别对应日排行、周排行、月排行和总排行。其中 `month` 不是自然月，而是每月 7 日 00:00 重置的赛季月。页面默认请求 `page_size=100`，然后在浏览器里按滚动位置逐批展示；接口本身仍支持最多返回 100 个用户。返回数据已按用户 ID 聚合并按总 `quota` 降序排序，展示名取该用户数据中最新的 `username`，每行会包含按当前赛季月消耗计算的 `tier` 段位字段。
+`period` 支持 `day`、`week`、`month`、`all`，分别对应日排行、周排行、月排行和总排行。其中 `month` 不是自然月，而是每月 7 日 00:00 重置的赛季月。页面默认请求 `/rank-addon/api/users/bundle` 一次取回四个周期，切换日/周/月/总排行时直接使用浏览器内存里的数据；点击刷新会带 `refresh=1` 强制服务端刷新。接口本身仍支持最多返回 100 个用户。返回数据已按有效用户 ID 聚合并按总 `quota` 降序排序；当 New API 数据看板返回零值用户 ID 时，会回退按用户名聚合。每行会包含按当前赛季月消耗计算的 `tier` 段位字段。
 
-`period` supports `day`, `week`, `month`, and `all`, corresponding to daily, weekly, monthly, and all-time rankings. `month` is a season month that resets at 00:00 on the 7th day of each month, not a calendar month. The page requests `page_size=100` by default and reveals rows progressively while scrolling. The API itself still returns up to 100 users. Response rows are aggregated by user ID, sorted by total `quota` in descending order, display the latest `username` found for that user, and each row includes a `tier` field calculated from the current season-month usage.
+`period` supports `day`, `week`, `month`, and `all`, corresponding to daily, weekly, monthly, and all-time rankings. `month` is a season month that resets at 00:00 on the 7th day of each month, not a calendar month. The page requests `/rank-addon/api/users/bundle` by default to fetch all four periods once, and switching tabs uses in-memory browser data. The refresh button sends `refresh=1` to force a server refresh. The API itself still returns up to 100 users. Response rows are aggregated by valid user ID and sorted by total `quota` in descending order; when New API dashboard data returns zero-value user IDs, the add-on falls back to username aggregation. Each row includes a `tier` field calculated from the current season-month usage.
 
 周排行按 `rank.utcOffsetMinutes` 对应时区的自然周统计，默认使用 `Asia/Shanghai` 口径，即周一 00:00 到当前请求时间。
 
@@ -112,6 +157,10 @@ Tier conversion maps 0-1520 USD to 0-200 stars. The first 100 stars cover Bronze
 赛季段位支持继承：服务端会读取当前赛季开始前的历史数据，找到每个用户最近一次有消耗的历史赛季，并按段位继承表计算起始星数。上赛季活跃使用“直接继承”，隔 1 个赛季使用“跨单赛季继承”，隔 2 个及以上赛季使用“跨多赛季继承”。最终展示段位 = 继承起始星数 + 当前赛季消耗换算星数。
 
 Season tier inheritance is supported. The server reads historical data before the current season, finds each user's latest active historical season, and converts that previous tier into starting stars through the inheritance table. Users active in the previous season use direct inheritance, users who skipped one season use single-season inheritance, and users who skipped two or more seasons use multi-season inheritance. The displayed tier is calculated from inherited starting stars plus stars earned from current-season usage.
+
+排行响应和段位继承结果会写入 SQLite。缓存命中时不会请求 New API；缓存进入过期窗口时会先返回旧数据并后台刷新。SQLite 可按配置定期上传到 WebDAV，备份前会生成一致性快照，目标目录不存在时自动创建。
+
+Ranking responses and tier inheritance results are persisted in SQLite. Cache hits do not call New API. During the stale window, the add-on returns stale data first and refreshes in the background. SQLite can be uploaded to WebDAV on a configured interval; backups use a consistent snapshot and automatically create missing target folders.
 
 ## 致谢 / Acknowledgements
 

@@ -81,7 +81,8 @@ test('ranking addon uses isolated public paths to avoid NewAPI route conflicts',
 
   assert.match(html, /href="\/rank-addon\/assets\/styles\.css"/)
   assert.match(html, /src="\/rank-addon\/assets\/app\.js"/)
-  assert.match(app, /fetch\(`\/rank-addon\/api\/users\?\$\{params\}`/)
+  assert.match(app, /fetch\(`\/rank-addon\/api\/users\/bundle\?\$\{params\}`/)
+  assert.match(server, /url\.pathname === '\/rank-addon\/api\/users\/bundle'/)
   assert.match(server, /url\.pathname === '\/rank-addon\/api\/users'/)
   assert.match(server, /url\.pathname === '\/rank-addon\/users'/)
   assert.match(server, /url\.pathname\.startsWith\('\/rank-addon\/assets\/'\)/)
@@ -121,4 +122,17 @@ test('ranking page syncs light and dark theme from NewAPI source behavior', asyn
   assert.match(css, /:root\[data-theme='dark'\]/)
   assert.match(css, /color-scheme:\s*dark/)
   assert.match(css, /--panel-bg:/)
+})
+
+test('bundle API and page keep partial period failures isolated', async () => {
+  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8')
+  const server = await readFile(new URL('../server.mjs', import.meta.url), 'utf8')
+
+  assert.doesNotMatch(server, /failedPeriod/)
+  assert.match(server, /success:\s*true,[\s\S]*data:\s*\{[\s\S]*\.\.\.payload/)
+  assert.match(app, /if \(data\?\.ok === false\)/)
+  assert.match(app, /renderError\(data\.message \|\| '当前周期排行加载失败'\)/)
+  assert.match(app, /elements\.quota\.textContent\s*=\s*formatQuota\(0\)/)
+  assert.match(app, /elements\.tokens\.textContent\s*=\s*formatInt\(0\)/)
+  assert.match(app, /elements\.count\.textContent\s*=\s*formatInt\(0\)/)
 })

@@ -11,5 +11,23 @@
     "timezone": "Asia/Shanghai",
     "utcOffsetMinutes": 480,
     "seasonResetDay": 7
+  },
+  "cache": {
+    "freshSeconds": 60,
+    "allFreshSeconds": 300,
+    "staleSeconds": 600
+  },
+  "storage": {
+    "sqlitePath": "./data/rank-addon.sqlite"
+  },
+  "webdav": {
+    "enabled": false,
+    "baseUrl": "https://example.com/dav",
+    "username": "",
+    "password": "",
+    "targetFolder": "newapi-rank-addon",
+    "backupIntervalSeconds": 21600,
+    "retention": 20,
+    "timeoutSeconds": 30
   }
 }

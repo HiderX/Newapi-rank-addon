@@ -2,20 +2,26 @@ import http from 'node:http'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import {
-  aggregateUserRank,
-  buildInheritedStarsMap,
-  buildUserQuotaMap,
-  getPeriodRange,
-  presentRankRows,
-} from './src/rank.mjs'
 import { verifyNewApiLogin } from './src/auth.mjs'
 import { loadConfig } from './src/config.mjs'
+import { createRankService } from './src/rank-service.mjs'
+import { createSqliteStore } from './src/storage.mjs'
+import { startWebDavBackupSchedule } from './src/webdav.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const publicDir = path.join(__dirname, 'public')
 const config = await loadConfig({
   configPath: path.join(__dirname, 'config.json'),
+})
+const store = createSqliteStore({ sqlitePath: config.storage.sqlitePath })
+const rankService = createRankService({
+  config,
+  store,
+  fetchUserData,
+})
+startWebDavBackupSchedule({
+  store,
+  webdavOptions: config.webdav,
 })
 
 const mimeTypes = new Map([
@@ -29,6 +35,11 @@ const mimeTypes = new Map([
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', `http://${req.headers.host}`)
+
+    if (url.pathname === '/rank-addon/api/users/bundle') {
+      await handleRankBundleApi(url, req, res)
+      return
+    }
 
     if (url.pathname === '/rank-addon/api/users') {
       await handleRankApi(url, req, res)
@@ -59,12 +70,67 @@ server.listen(config.port, () => {
 })
 
 async function handleRankApi(url, req, res) {
+  const login = await requireLogin(req, res)
+  if (!login.ok) {
+    return
+  }
+
+  const pageSize = normalizePageSize(
+    url.searchParams.get('page_size') || url.searchParams.get('limit')
+  )
+  const payload = await rankService.getRankPayload({
+    period: url.searchParams.get('period') || 'day',
+    pageSize,
+    force: isForcedRefresh(url.searchParams),
+    endTimestamp: url.searchParams.has('end_timestamp')
+      ? url.searchParams.get('end_timestamp')
+      : undefined,
+  })
+  if (payload.ok === false) {
+    sendJson(res, payload.status, {
+      success: false,
+      message: payload.message,
+    })
+    return
+  }
+  sendJson(res, 200, {
+    success: true,
+    data: withViewer(payload, login.user),
+  })
+}
+
+async function handleRankBundleApi(url, req, res) {
+  const login = await requireLogin(req, res)
+  if (!login.ok) {
+    return
+  }
+
+  const pageSize = normalizePageSize(
+    url.searchParams.get('page_size') || url.searchParams.get('limit')
+  )
+  const payload = await rankService.getRankBundle({
+    pageSize,
+    force: isForcedRefresh(url.searchParams),
+  })
+  sendJson(res, 200, {
+    success: true,
+    data: {
+      ...payload,
+      viewer: {
+        username: login.user.username,
+        role: login.user.role,
+      },
+    },
+  })
+}
+
+async function requireLogin(req, res) {
   if (!config.authorization) {
     sendJson(res, 500, {
       success: false,
       message: 'NEW_API_AUTHORIZATION is required',
     })
-    return
+    return { ok: false }
   }
 
   const login = await verifyNewApiLogin({
@@ -78,81 +144,8 @@ async function handleRankApi(url, req, res) {
       success: false,
       message: login.message,
     })
-    return
   }
-
-  const { params, range } = buildQueryParams(url.searchParams)
-  const rankResult = await fetchUserData(params)
-  if (!rankResult.ok) {
-    sendJson(res, rankResult.status, {
-      success: false,
-      message: rankResult.message,
-    })
-    return
-  }
-
-  const pageSize = normalizePageSize(
-    url.searchParams.get('page_size') || url.searchParams.get('limit')
-  )
-  const rawRows = rankResult.rows
-  const tierRange = getPeriodRange('month', range.end, config.rankOptions)
-  const tierResult =
-    range.period === 'month'
-      ? { ok: true, rows: rawRows }
-      : await fetchUserData(rangeToParams(tierRange))
-  if (!tierResult.ok) {
-    sendJson(res, tierResult.status, {
-      success: false,
-      message: tierResult.message,
-    })
-    return
-  }
-  const tierRows = tierResult.rows
-  const inheritanceResult =
-    tierRange.start > 0
-      ? await fetchUserData(rangeToParams({ start: 0, end: tierRange.start - 1 }))
-      : { ok: true, rows: [] }
-  if (!inheritanceResult.ok) {
-    sendJson(res, inheritanceResult.status, {
-      success: false,
-      message: inheritanceResult.message,
-    })
-    return
-  }
-  const inheritanceRows = inheritanceResult.rows
-  const tierQuotaByUserId = buildUserQuotaMap(tierRows)
-  const inheritedStarsByUserId = buildInheritedStarsMap(
-    inheritanceRows,
-    tierRange.start,
-    config.rankOptions
-  )
-  const aggregate = aggregateUserRank(rawRows, { limit: pageSize })
-  const rankRows = presentRankRows(aggregate.rankRows, { tierQuotaByUserId, inheritedStarsByUserId })
-
-  sendJson(res, 200, {
-    success: true,
-    data: {
-      period: range.period,
-      start_timestamp: range.start,
-      end_timestamp: range.end,
-      page_size: pageSize,
-      tier_period: tierRange.period,
-      tier_start_timestamp: tierRange.start,
-      tier_end_timestamp: tierRange.end,
-      source_rows: rawRows.length,
-      tier_source_rows: tierRows.length,
-      inheritance_source_rows: inheritanceRows.length,
-      user_count: aggregate.userCount,
-      total_quota: aggregate.totalQuota,
-      total_count: aggregate.totalCount,
-      total_tokens: aggregate.totalTokens,
-      viewer: {
-        username: login.user.username,
-        role: login.user.role,
-      },
-      rank_rows: rankRows,
-    },
-  })
+  return login
 }
 
 async function fetchUserData(params) {
@@ -184,27 +177,24 @@ async function fetchUserData(params) {
   }
 }
 
-function buildQueryParams(searchParams) {
-  const now = Math.floor(Date.now() / 1000)
-  const end = Number(searchParams.get('end_timestamp') || now)
-  const range = getPeriodRange(searchParams.get('period') || 'day', end, config.rankOptions)
-  const params = new URLSearchParams()
-  params.set('start_timestamp', String(range.start))
-  params.set('end_timestamp', String(range.end))
-  return { params, range }
-}
-
-function rangeToParams(range) {
-  const params = new URLSearchParams()
-  params.set('start_timestamp', String(range.start))
-  params.set('end_timestamp', String(range.end))
-  return params
-}
-
 function normalizePageSize(pageSize) {
   const value = Number(pageSize)
   if (!Number.isFinite(value) || value <= 0) return 10
   return Math.min(100, Math.floor(value))
+}
+
+function isForcedRefresh(searchParams) {
+  return searchParams.get('refresh') === '1' || searchParams.get('force') === '1'
+}
+
+function withViewer(payload, user) {
+  return {
+    ...payload,
+    viewer: {
+      username: user.username,
+      role: user.role,
+    },
+  }
 }
 
 async function serveFile(fileName, res) {
