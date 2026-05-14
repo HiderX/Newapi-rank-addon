@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   aggregateUserRank,
+  buildInheritedStarsMap,
   buildUserQuotaMap,
   calculateUserTier,
   getPeriodRange,
@@ -178,6 +179,50 @@ test('presentRankRows falls back to current row quota when monthly tier quota is
 
   assert.equal(presented[0].name, 'dave')
   assert.equal(presented[0].tier.display, '倔强青铜III')
+})
+
+test('presentRankRows adds inherited season stars before current season usage', () => {
+  const presented = presentRankRows(
+    [{ rank: 1, user_id: 7, username: 'alice', quota: quotaUsd(68.4) }],
+    {
+      inheritedStarsByUserId: new Map([['7', 42]]),
+    }
+  )
+
+  assert.equal(presented[0].tier.display, '永恒钻石V')
+  assert.equal(presented[0].tier.inherited_stars, 42)
+  assert.equal(presented[0].tier.earned_stars, 9)
+  assert.equal(presented[0].tier.total_stars, 51)
+})
+
+test('buildInheritedStarsMap applies direct, single-season, and multi-season inheritance by last active season', () => {
+  const currentSeasonStart = Date.UTC(2026, 4, 6, 16, 0, 0) / 1000
+  const rows = [
+    {
+      user_id: 1,
+      username: 'direct',
+      created_at: Date.UTC(2026, 3, 20, 12, 0, 0) / 1000,
+      quota: quotaUsd(570),
+    },
+    {
+      user_id: 2,
+      username: 'single',
+      created_at: Date.UTC(2026, 2, 20, 12, 0, 0) / 1000,
+      quota: quotaUsd(760),
+    },
+    {
+      user_id: 3,
+      username: 'multi',
+      created_at: Date.UTC(2026, 1, 20, 12, 0, 0) / 1000,
+      quota: quotaUsd(1520),
+    },
+  ]
+
+  const inheritedStars = buildInheritedStarsMap(rows, currentSeasonStart)
+
+  assert.equal(calculateUserTier(0, { inheritedStars: inheritedStars.get('1') }).display, '尊贵铂金II')
+  assert.equal(calculateUserTier(0, { inheritedStars: inheritedStars.get('2') }).display, '尊贵铂金IV')
+  assert.equal(calculateUserTier(0, { inheritedStars: inheritedStars.get('3') }).display, '尊贵铂金IV')
 })
 
 test('getPeriodRange maps rank periods to upstream timestamp windows', () => {

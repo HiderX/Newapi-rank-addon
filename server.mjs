@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   aggregateUserRank,
+  buildInheritedStarsMap,
   buildUserQuotaMap,
   getPeriodRange,
   presentRankRows,
@@ -107,9 +108,26 @@ async function handleRankApi(url, req, res) {
     return
   }
   const tierRows = tierResult.rows
+  const inheritanceResult =
+    tierRange.start > 0
+      ? await fetchUserData(rangeToParams({ start: 0, end: tierRange.start - 1 }))
+      : { ok: true, rows: [] }
+  if (!inheritanceResult.ok) {
+    sendJson(res, inheritanceResult.status, {
+      success: false,
+      message: inheritanceResult.message,
+    })
+    return
+  }
+  const inheritanceRows = inheritanceResult.rows
   const tierQuotaByUserId = buildUserQuotaMap(tierRows)
+  const inheritedStarsByUserId = buildInheritedStarsMap(
+    inheritanceRows,
+    tierRange.start,
+    config.rankOptions
+  )
   const aggregate = aggregateUserRank(rawRows, { limit: pageSize })
-  const rankRows = presentRankRows(aggregate.rankRows, { tierQuotaByUserId })
+  const rankRows = presentRankRows(aggregate.rankRows, { tierQuotaByUserId, inheritedStarsByUserId })
 
   sendJson(res, 200, {
     success: true,
@@ -123,6 +141,7 @@ async function handleRankApi(url, req, res) {
       tier_end_timestamp: tierRange.end,
       source_rows: rawRows.length,
       tier_source_rows: tierRows.length,
+      inheritance_source_rows: inheritanceRows.length,
       user_count: aggregate.userCount,
       total_quota: aggregate.totalQuota,
       total_count: aggregate.totalCount,

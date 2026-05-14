@@ -109,6 +109,10 @@ The weekly ranking uses the natural week in the timezone represented by `rank.ut
 
 Tier conversion maps 0-1520 USD to 0-200 stars. The first 100 stars cover Bronze through Star Glory, and stars after 100 enter King sub-tiers, with 1520 USD mapping to Legendary King 100 stars. The UI uses formats such as `至尊星耀III` and `最强王者⭐3`; only King tiers show star counts.
 
+赛季段位支持继承：服务端会读取当前赛季开始前的历史数据，找到每个用户最近一次有消耗的历史赛季，并按段位继承表计算起始星数。上赛季活跃使用“直接继承”，隔 1 个赛季使用“跨单赛季继承”，隔 2 个及以上赛季使用“跨多赛季继承”。最终展示段位 = 继承起始星数 + 当前赛季消耗换算星数。
+
+Season tier inheritance is supported. The server reads historical data before the current season, finds each user's latest active historical season, and converts that previous tier into starting stars through the inheritance table. Users active in the previous season use direct inheritance, users who skipped one season use single-season inheritance, and users who skipped two or more seasons use multi-season inheritance. The displayed tier is calculated from inherited starting stars plus stars earned from current-season usage.
+
 ## 致谢 / Acknowledgements
 
 感谢 [LinuxDo](https://linux.do/) 社区在使用反馈、部署实践和体验改进上的讨论与支持。

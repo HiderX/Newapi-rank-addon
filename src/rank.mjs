@@ -26,6 +26,57 @@ const KING_TIERS = [
   { code: 'glory-king', name: '荣耀王者', minStars: 75 },
   { code: 'legend-king', name: '传奇王者', minStars: 100 },
 ]
+const KING_INHERITANCE_KEYS = [
+  { minStars: 150, key: '王者150' },
+  { minStars: 125, key: '王者125' },
+  { minStars: 100, key: '王者100' },
+  { minStars: 75, key: '王者75' },
+  { minStars: 50, key: '王者50' },
+  { minStars: 40, key: '王者40' },
+  { minStars: 30, key: '王者30' },
+  { minStars: 20, key: '王者20' },
+  { minStars: 10, key: '王者10' },
+  { minStars: 0, key: '王者0' },
+]
+const INHERITANCE_RULES = new Map(
+  [
+    ['倔强青铜III', '倔强青铜III', '倔强青铜III', '倔强青铜III'],
+    ['倔强青铜II', '倔强青铜II', '倔强青铜II', '倔强青铜II'],
+    ['倔强青铜I', '倔强青铜I', '倔强青铜I', '倔强青铜I'],
+    ['秩序白银III', '秩序白银III', '秩序白银III', '秩序白银III'],
+    ['秩序白银II', '秩序白银III', '秩序白银III', '秩序白银III'],
+    ['秩序白银I', '秩序白银II', '秩序白银III', '秩序白银III'],
+    ['荣耀黄金IV', '秩序白银II', '秩序白银III', '秩序白银III'],
+    ['荣耀黄金III', '秩序白银I', '秩序白银II', '秩序白银III'],
+    ['荣耀黄金II', '荣耀黄金IV', '秩序白银II', '秩序白银III'],
+    ['荣耀黄金I', '荣耀黄金III', '秩序白银I', '秩序白银II'],
+    ['尊贵铂金IV', '荣耀黄金II', '荣耀黄金IV', '秩序白银II'],
+    ['尊贵铂金III', '荣耀黄金II', '荣耀黄金IV', '秩序白银II'],
+    ['尊贵铂金II', '荣耀黄金I', '荣耀黄金III', '秩序白银I'],
+    ['尊贵铂金I', '荣耀黄金I', '荣耀黄金III', '秩序白银I'],
+    ['永恒钻石V', '尊贵铂金IV', '荣耀黄金II', '荣耀黄金IV'],
+    ['永恒钻石IV', '尊贵铂金IV', '荣耀黄金II', '荣耀黄金IV'],
+    ['永恒钻石III', '尊贵铂金III', '荣耀黄金II', '荣耀黄金IV'],
+    ['永恒钻石II', '尊贵铂金III', '荣耀黄金II', '荣耀黄金IV'],
+    ['永恒钻石I', '尊贵铂金II', '荣耀黄金I', '荣耀黄金III'],
+    ['至尊星耀V', '尊贵铂金II', '荣耀黄金I', '荣耀黄金III'],
+    ['至尊星耀IV', '尊贵铂金I', '荣耀黄金I', '荣耀黄金III'],
+    ['至尊星耀III', '尊贵铂金I', '荣耀黄金I', '荣耀黄金III'],
+    ['至尊星耀II', '永恒钻石V', '尊贵铂金IV', '荣耀黄金II'],
+    ['至尊星耀I', '永恒钻石V', '尊贵铂金IV', '荣耀黄金II'],
+    ['王者0', '永恒钻石IV', '尊贵铂金IV', '荣耀黄金II'],
+    ['王者10', '永恒钻石III', '尊贵铂金III', '荣耀黄金II'],
+    ['王者20', '永恒钻石II', '尊贵铂金III', '荣耀黄金II'],
+    ['王者30', '永恒钻石I', '尊贵铂金II', '荣耀黄金I'],
+    ['王者40', '至尊星耀V', '尊贵铂金II', '荣耀黄金I'],
+    ['王者50', '至尊星耀IV', '尊贵铂金I', '荣耀黄金I'],
+    ['王者75', '至尊星耀III', '尊贵铂金I', '荣耀黄金I'],
+    ['王者100', '至尊星耀II', '永恒钻石V', '尊贵铂金IV'],
+    ['王者125', '至尊星耀I', '永恒钻石V', '尊贵铂金IV'],
+    ['王者150', '王者1星', '永恒钻石IV', '尊贵铂金IV'],
+  ].map(([before, direct, single, multi]) => [before, { direct, single, multi }])
+)
+const TIER_START_STARS = buildTierStartStars()
 
 export function getPeriodRange(period = 'day', now = Math.floor(Date.now() / 1000), options = {}) {
   const normalized =
@@ -105,6 +156,7 @@ export function aggregateUserRank(rows, options = {}) {
 
 export function presentRankRows(rankRows, options = {}) {
   const tierQuotaByUserId = options.tierQuotaByUserId
+  const inheritedStarsByUserId = options.inheritedStarsByUserId
   return rankRows.map((row) => {
     const username = getUsername(row)
     const identity = getUserIdentity(row, username)
@@ -112,17 +164,23 @@ export function presentRankRows(rankRows, options = {}) {
       tierQuotaByUserId instanceof Map && tierQuotaByUserId.has(identity.key)
         ? tierQuotaByUserId.get(identity.key)
         : row?.quota
+    const inheritedStars =
+      inheritedStarsByUserId instanceof Map && inheritedStarsByUserId.has(identity.key)
+        ? inheritedStarsByUserId.get(identity.key)
+        : 0
 
     return {
       ...row,
       name: username,
-      tier: calculateUserTier(tierQuota),
+      tier: calculateUserTier(tierQuota, { inheritedStars }),
     }
   })
 }
 
-export function calculateUserTier(quota) {
-  const totalStars = Math.max(0, Math.floor((Number(quota) || 0) / QUOTA_PER_STAR))
+export function calculateUserTier(quota, options = {}) {
+  const earnedStars = Math.max(0, Math.floor((Number(quota) || 0) / QUOTA_PER_STAR))
+  const inheritedStars = normalizeStars(options.inheritedStars)
+  const totalStars = inheritedStars + earnedStars
   if (totalStars >= 100) {
     const kingStars = totalStars - 100
     const tier = [...KING_TIERS].reverse().find((item) => kingStars >= item.minStars)
@@ -134,6 +192,8 @@ export function calculateUserTier(quota) {
       display: formatTierDisplay(label, kingStars, true),
       stars: kingStars,
       total_stars: totalStars,
+      earned_stars: earnedStars,
+      inherited_stars: inheritedStars,
       quota_usd: (Number(quota) || 0) / QUOTA_PER_USD,
     }
   }
@@ -155,6 +215,8 @@ export function calculateUserTier(quota) {
         display: formatTierDisplay(label, stars, false),
         stars,
         total_stars: totalStars,
+        earned_stars: earnedStars,
+        inherited_stars: inheritedStars,
         quota_usd: (Number(quota) || 0) / QUOTA_PER_USD,
       }
     }
@@ -170,6 +232,50 @@ export function buildUserQuotaMap(rows) {
     maxLimit: Number.MAX_SAFE_INTEGER,
   })
   return new Map(aggregate.rankRows.map((row) => [getUserIdentity(row).key, row.quota]))
+}
+
+export function buildInheritedStarsMap(rows, currentSeasonStart, options = {}) {
+  const currentStart = normalizeTimestamp(currentSeasonStart)
+  const seasonQuotaByUserId = new Map()
+
+  // 核心流程：历史数据按用户和赛季切桶，找到每个用户最近一次有消耗的历史赛季。
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const timestamp = Number(row?.created_at ?? row?.timestamp)
+    if (!Number.isFinite(timestamp) || timestamp >= currentStart) continue
+    const quota = Number(row?.quota) || 0
+    if (quota <= 0) continue
+
+    const seasonStart = getSeasonMonthStart(timestamp, options)
+    if (seasonStart >= currentStart) continue
+
+    const identity = getUserIdentity(row)
+    const key = `${identity.key}:${seasonStart}`
+    const current = seasonQuotaByUserId.get(key) || {
+      userKey: identity.key,
+      seasonStart,
+      quota: 0,
+    }
+    current.quota += quota
+    seasonQuotaByUserId.set(key, current)
+  }
+
+  const latestSeasonByUserId = new Map()
+  for (const season of seasonQuotaByUserId.values()) {
+    const current = latestSeasonByUserId.get(season.userKey)
+    if (!current || season.seasonStart > current.seasonStart) {
+      latestSeasonByUserId.set(season.userKey, season)
+    }
+  }
+
+  const inheritedStarsByUserId = new Map()
+  for (const season of latestSeasonByUserId.values()) {
+    const beforeKey = getInheritanceBeforeKey(calculateUserTier(season.quota).total_stars)
+    const mode = getInheritanceMode(season.seasonStart, currentStart, options)
+    const inheritedLabel = INHERITANCE_RULES.get(beforeKey)?.[mode] || '倔强青铜III'
+    inheritedStarsByUserId.set(season.userKey, tierLabelToStartStars(inheritedLabel))
+  }
+
+  return inheritedStarsByUserId
 }
 
 function getUserIdentity(row, username = getUsername(row)) {
@@ -194,6 +300,80 @@ function getUsername(row) {
 function getUsernameFreshness(row, fallbackOrder) {
   const timestamp = Number(row?.created_at ?? row?.timestamp)
   return Number.isFinite(timestamp) ? timestamp : fallbackOrder
+}
+
+function getInheritanceBeforeKey(totalStars) {
+  const stars = normalizeStars(totalStars)
+  if (stars >= 100) {
+    const kingStars = stars - 100
+    return KING_INHERITANCE_KEYS.find((item) => kingStars >= item.minStars).key
+  }
+
+  let consumedStars = 0
+  for (const tier of PRE_KING_TIERS) {
+    for (const division of tier.divisions) {
+      const nextStars = consumedStars + tier.starsPerDivision
+      if (stars < nextStars) {
+        return `${tier.name}${division}`
+      }
+      consumedStars = nextStars
+    }
+  }
+
+  return '至尊星耀I'
+}
+
+function getInheritanceMode(latestSeasonStart, currentSeasonStart, options = {}) {
+  let skippedSeasons = 0
+  let nextSeasonStart = getNextSeasonMonthStart(latestSeasonStart, options)
+
+  while (nextSeasonStart < currentSeasonStart) {
+    skippedSeasons += 1
+    nextSeasonStart = getNextSeasonMonthStart(nextSeasonStart, options)
+  }
+
+  if (skippedSeasons === 0) return 'direct'
+  if (skippedSeasons === 1) return 'single'
+  return 'multi'
+}
+
+function getNextSeasonMonthStart(seasonStart, options = {}) {
+  const resetDay = Number(options.resetDay || RESET_DAY)
+  const offsetMinutes = Number(options.utcOffsetMinutes ?? RESET_UTC_OFFSET_MINUTES)
+  const offsetSeconds = offsetMinutes * 60
+  const shiftedDate = new Date((seasonStart + offsetSeconds) * 1000)
+  return Math.floor(
+    Date.UTC(shiftedDate.getUTCFullYear(), shiftedDate.getUTCMonth() + 1, resetDay, 0, 0, 0) /
+      1000 -
+      offsetSeconds
+  )
+}
+
+function tierLabelToStartStars(label) {
+  if (TIER_START_STARS.has(label)) return TIER_START_STARS.get(label)
+
+  const kingMatch = String(label).match(/^王者(\d+)星$/)
+  if (kingMatch) return 100 + Number(kingMatch[1])
+
+  return 0
+}
+
+function buildTierStartStars() {
+  const tierStartStars = new Map()
+  let consumedStars = 0
+  for (const tier of PRE_KING_TIERS) {
+    for (const division of tier.divisions) {
+      tierStartStars.set(`${tier.name}${division}`, consumedStars)
+      consumedStars += tier.starsPerDivision
+    }
+  }
+  return tierStartStars
+}
+
+function normalizeStars(stars) {
+  const value = Number(stars)
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.floor(value)
 }
 
 function normalizeLimit(limit, maxLimit = 100) {
