@@ -219,17 +219,22 @@ async function serveIndex(res) {
 }
 
 function renderIndexHtml(content) {
-  const terminalThemeLink =
-    config.ui.theme === 'terminal'
-      ? '<link rel="stylesheet" href="/rank-addon/assets/terminal.css" />'
-      : ''
+  const themeAssets = getThemeAssetTags(config.ui.theme)
   return String(content)
     .replaceAll('data-ui-theme="classic"', `data-ui-theme="${config.ui.theme}"`)
     .replaceAll(
       'data-terminal-visible-rows="20"',
       `data-terminal-visible-rows="${config.ui.terminal.visibleRows}"`
     )
-    .replaceAll('<!-- terminal-theme-link -->', terminalThemeLink)
+    .replaceAll('<!-- theme-style-link -->', themeAssets.style)
+    .replaceAll('<!-- theme-script-link -->', themeAssets.script)
+}
+
+function getThemeAssetTags(theme) {
+  return {
+    style: `<link rel="stylesheet" href="/rank-addon/assets/themes/${theme}/styles.css" />`,
+    script: `<script type="module" src="/rank-addon/assets/themes/${theme}/app.js"></script>`,
+  }
 }
 
 function sendJson(res, status, payload) {

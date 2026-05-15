@@ -1,30 +1,61 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 
-test('index shell exposes server-side UI theme placeholders while keeping static classic fallback', async () => {
+test('index shell exposes server-side UI theme placeholders without hard-coded theme assets', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8')
 
   assert.match(html, /<html lang="zh-CN" data-ui-theme="classic" data-terminal-visible-rows="20">/)
   assert.match(html, /data-terminal-visible-rows="20"/)
-  assert.match(html, /<!-- terminal-theme-link -->/)
-  assert.match(html, /href="\/rank-addon\/assets\/styles\.css"/)
+  assert.match(html, /<!-- theme-style-link -->/)
+  assert.match(html, /<!-- theme-script-link -->/)
+  assert.doesNotMatch(html, /terminal-theme-link/)
+  assert.doesNotMatch(html, /href="\/rank-addon\/assets\/styles\.css"/)
+  assert.doesNotMatch(html, /src="\/rank-addon\/assets\/app\.js"/)
 })
 
-test('server injects configured UI theme and terminal stylesheet only for terminal theme', async () => {
+test('server injects configured UI theme assets from per-theme folders', async () => {
   const server = await readFile(new URL('../server.mjs', import.meta.url), 'utf8')
 
   assert.match(server, /function renderIndexHtml/)
+  assert.match(server, /function getThemeAssetTags/)
   assert.match(server, /data-ui-theme="classic"/)
-  assert.match(server, /terminal-theme-link/)
-  assert.match(server, /config\.ui\.theme === 'terminal'/)
+  assert.match(server, /theme-style-link/)
+  assert.match(server, /theme-script-link/)
   assert.match(server, /data-terminal-visible-rows="20"/)
   assert.match(server, /config\.ui\.terminal\.visibleRows/)
-  assert.match(server, /href="\/rank-addon\/assets\/terminal\.css"/)
+  assert.match(server, /\/rank-addon\/assets\/themes\/\$\{theme\}\/styles\.css/)
+  assert.match(server, /\/rank-addon\/assets\/themes\/\$\{theme\}\/app\.js/)
+  assert.doesNotMatch(server, /\/rank-addon\/assets\/styles\.css/)
+  assert.doesNotMatch(server, /\/rank-addon\/assets\/terminal\.css/)
+  assert.doesNotMatch(server, /\/rank-addon\/assets\/app\.js/)
+})
+
+test('theme-specific files live in isolated theme folders', async () => {
+  await access(new URL('../public/shared/app-core.js', import.meta.url))
+  await access(new URL('../public/themes/classic/styles.css', import.meta.url))
+  await access(new URL('../public/themes/classic/app.js', import.meta.url))
+  await access(new URL('../public/themes/terminal/styles.css', import.meta.url))
+  await access(new URL('../public/themes/terminal/app.js', import.meta.url))
+})
+
+test('classic theme assets do not include terminal-only behavior', async () => {
+  const app = await readFile(new URL('../public/themes/classic/app.js', import.meta.url), 'utf8')
+  const css = await readFile(new URL('../public/themes/classic/styles.css', import.meta.url), 'utf8')
+
+  assert.match(app, /startRankApp/)
+  assert.match(app, /renderClassicRankChart/)
+  assert.match(app, /handleInfiniteScroll/)
+  assert.doesNotMatch(app, /installTerminalChrome/)
+  assert.doesNotMatch(app, /renderTerminalRankChart/)
+  assert.doesNotMatch(app, /Last login:/)
+  assert.doesNotMatch(app, /terminal-table-row/)
+  assert.doesNotMatch(css, /data-ui-theme='terminal'/)
+  assert.doesNotMatch(css, /terminal-/)
 })
 
 test('terminal stylesheet is isolated, follows dark mode, and draws aligned column borders', async () => {
-  const css = await readFile(new URL('../public/terminal.css', import.meta.url), 'utf8')
+  const css = await readFile(new URL('../public/themes/terminal/styles.css', import.meta.url), 'utf8')
 
   assert.match(css, /:root\[data-ui-theme='terminal'\]/)
   assert.match(css, /:root\[data-ui-theme='terminal'\]\[data-theme='dark'\]/)
@@ -57,12 +88,15 @@ test('terminal stylesheet is isolated, follows dark mode, and draws aligned colu
   assert.doesNotMatch(css, /;\n\s*height:\s*100vh/)
   assert.doesNotMatch(css, /\.terminal-table-row\s*>\s*\*\s*\+\s*\*\s*\{[^}]*border-left:/s)
   assert.doesNotMatch(css, /content:\s*['"`][│|]/)
+  assert.doesNotMatch(css, /\.rank-row/)
+  assert.doesNotMatch(css, /\.bar-track/)
+  assert.doesNotMatch(css, /\.tier-bronze/)
 })
 
-test('terminal app branch renders terminal rows and keyboard controls without editable interception', async () => {
-  const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8')
+test('terminal theme app renders terminal rows and keyboard controls without classic branching', async () => {
+  const app = await readFile(new URL('../public/themes/terminal/app.js', import.meta.url), 'utf8')
 
-  assert.match(app, /const isTerminalTheme = document\.documentElement\.dataset\.uiTheme === 'terminal'/)
+  assert.match(app, /startRankApp/)
   assert.match(app, /installKeyboardControls\(\)/)
   assert.match(app, /function renderTerminalRankChart/)
   assert.match(app, /Last login:/)
@@ -108,6 +142,8 @@ test('terminal app branch renders terminal rows and keyboard controls without ed
   assert.match(app, /case 'ArrowUp':/)
   assert.match(app, /case 'r':/)
   assert.doesNotMatch(app, /[│┆┊]\s*\$\{/)
+  assert.doesNotMatch(app, /isTerminalTheme/)
+  assert.doesNotMatch(app, /renderClassicRankChart/)
 })
 
 test('example config and README document config-file theme switching', async () => {
@@ -118,8 +154,19 @@ test('example config and README document config-file theme switching', async () 
   assert.match(example, /"terminal"\s*:\s*\{[\s\S]*"visibleRows"\s*:\s*20/)
   assert.match(readme, /`ui\.theme`/)
   assert.match(readme, /`ui\.terminal\.visibleRows`/)
+  assert.match(readme, /macOS Terminal\.app/)
+  assert.match(readme, /固定窗口尺寸/)
+  assert.match(readme, /internal ranking scroll/)
+  assert.match(readme, /`1`\/`2`\/`3`\/`4`/)
+  assert.match(readme, /`j`\/`k`/)
+  assert.match(readme, /`r`/)
+  assert.match(readme, /`★` \/ `☆`/)
   assert.match(readme, /`classic`/)
   assert.match(readme, /`terminal`/)
   assert.match(readme, /config\.json/)
+  assert.match(readme, /`public\/themes\/classic\/`/)
+  assert.match(readme, /`public\/themes\/terminal\/`/)
+  assert.match(readme, /`styles\.css`/)
+  assert.match(readme, /`app\.js`/)
   assert.doesNotMatch(readme, /主题切换按钮/)
 })

@@ -32,6 +32,10 @@
   --terminal-error: #ff8585;
 }
 
+:root[data-ui-theme='terminal'] * {
+  box-sizing: border-box;
+}
+
 :root[data-ui-theme='terminal'] body {
   display: flow-root;
   min-height: 100vh;

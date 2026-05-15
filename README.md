@@ -141,6 +141,31 @@ This lets the browser send the New API cookies automatically, so the add-on can 
 
 `PORT`, `NEW_API_BASE`, `NEW_API_AUTHORIZATION`, `NEW_API_USER`, `RANK_TIMEZONE`, `RANK_UTC_OFFSET_MINUTES`, `RANK_SEASON_RESET_DAY`, `RANK_CACHE_FRESH_SECONDS`, `RANK_CACHE_ALL_FRESH_SECONDS`, `RANK_CACHE_STALE_SECONDS`, `RANK_SQLITE_PATH`, and `RANK_WEBDAV_*` can still override the config for one-off runs, while the systemd deployment reads `config.json` by default.
 
+## 终端主题 / Terminal Theme
+
+终端主题只通过 `config.json` 切换，不提供页面内切换入口：
+
+The terminal theme is switched only through `config.json`; there is no in-page theme toggle:
+
+```json
+{
+  "ui": {
+    "theme": "terminal",
+    "terminal": {
+      "visibleRows": 20
+    }
+  }
+}
+```
+
+启用后页面会渲染为 macOS Terminal.app 风格窗口，保留固定窗口尺寸，排行榜内容在窗口内部滚动；`visibleRows` 控制可见数据行数，默认 `20`。终端主题会跟随 New API 的浅色/深色模式，段位星标使用 `★` / `☆`，键盘支持 `1`/`2`/`3`/`4` 切换日/周/月/总榜，`j`/`k` 或方向键移动选中行，`r` 强制刷新。
+
+When enabled, the page renders as a macOS Terminal.app-style window with a fixed viewport and internal ranking scroll. `visibleRows` controls the visible data rows and defaults to `20`. The terminal theme follows New API light/dark mode, renders tier stars as `★` / `☆`, and supports `1`/`2`/`3`/`4` for day/week/month/all, `j`/`k` or arrow keys for selection movement, and `r` for force refresh.
+
+主题专属资源按目录隔离：默认主题在 `public/themes/classic/`，终端主题在 `public/themes/terminal/`，每个主题目录各自包含自己的 `styles.css` 和 `app.js`；共享的数据请求、配置读取和格式化逻辑放在 `public/shared/`。
+
+Theme-specific assets are isolated by directory: the default theme lives in `public/themes/classic/`, the terminal theme lives in `public/themes/terminal/`, and each theme owns its own `styles.css` and `app.js`; shared data loading, config reading, and formatting logic lives in `public/shared/`.
+
 访问排行榜接口时，外挂服务会先把浏览器传入的 New API Cookie 转发到 `/api/user/self` 校验登录态。未登录用户只能看到页面骨架，不能获取排行榜数据。
 
 When the ranking API is requested, the add-on first forwards the browser's New API cookies to `/api/user/self` to verify the login session. Logged-out users can see the page shell but cannot fetch ranking data.
