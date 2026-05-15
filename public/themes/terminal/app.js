@@ -101,14 +101,25 @@ function installParentKeyboardBridge(handleShortcutEvent) {
   const parentWindow = getSameOriginParentWindow()
   if (!parentWindow) return
 
-  parentWindow.addEventListener('keydown', handleShortcutEvent)
-  window.addEventListener(
-    'pagehide',
-    () => {
-      parentWindow.removeEventListener('keydown', handleShortcutEvent)
-    },
-    { once: true }
-  )
+  let isParentKeyboardListening = false
+
+  function addParentKeyboardListener() {
+    if (isParentKeyboardListening) return
+    parentWindow.addEventListener('keydown', handleShortcutEvent)
+    isParentKeyboardListening = true
+  }
+
+  function removeParentKeyboardListener() {
+    if (!isParentKeyboardListening) return
+    parentWindow.removeEventListener('keydown', handleShortcutEvent)
+    isParentKeyboardListening = false
+  }
+
+  addParentKeyboardListener()
+  window.addEventListener('pagehide', removeParentKeyboardListener)
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) addParentKeyboardListener()
+  })
 }
 
 function getSameOriginParentWindow() {
