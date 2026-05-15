@@ -162,6 +162,10 @@ The terminal theme is switched only through `config.json`; there is no in-page t
 
 When enabled, the page renders as a macOS Terminal.app-style window with a fixed viewport and internal ranking scroll. `visibleRows` controls the visible data rows and defaults to `20`. The terminal theme follows New API light/dark mode, renders tier stars as `★` / `☆`, and supports `1`/`2`/`3`/`4` for day/week/month/all, `j`/`k` or arrow keys for selection movement, and `r` for force refresh.
 
+如果通过 iframe 同源嵌入到 New API 页面，终端主题会自动在父页面注册键盘监听；焦点停留在父页面时也能直接使用 `1`/`2`/`3`/`4`、`j`/`k`、方向键和 `r`，无需先点击 iframe。跨域 iframe 无法读取父页面事件，生产环境建议继续使用同域反向代理。
+
+When embedded in a same-origin iframe inside New API, the terminal theme automatically registers keyboard listeners on the parent page, so `1`/`2`/`3`/`4`, `j`/`k`, arrow keys, and `r` work without clicking the iframe first. Cross-origin iframes cannot expose parent-page key events, so production deployments should continue using a same-domain reverse proxy.
+
 主题专属资源按目录隔离：默认主题在 `public/themes/classic/`，终端主题在 `public/themes/terminal/`，每个主题目录各自包含自己的 `styles.css` 和 `app.js`；共享的数据请求、配置读取和格式化逻辑放在 `public/shared/`。
 
 Theme-specific assets are isolated by directory: the default theme lives in `public/themes/classic/`, the terminal theme lives in `public/themes/terminal/`, and each theme owns its own `styles.css` and `app.js`; shared data loading, config reading, and formatting logic lives in `public/shared/`.

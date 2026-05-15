@@ -87,47 +87,74 @@ function installTerminalChrome() {
 }
 
 function installKeyboardControls() {
-  window.addEventListener('keydown', (event) => {
+  const handleShortcutEvent = (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target)) return
 
-    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
-    switch (key) {
-      case '1':
-        event.preventDefault()
-        appContext.selectPeriod('day')
-        break
-      case '2':
-        event.preventDefault()
-        appContext.selectPeriod('week')
-        break
-      case '3':
-        event.preventDefault()
-        appContext.selectPeriod('month')
-        break
-      case '4':
-        event.preventDefault()
-        appContext.selectPeriod('all')
-        break
-      case 'j':
-      case 'ArrowDown':
-        event.preventDefault()
-        moveSelectedRank(1)
-        break
-      case 'k':
-      case 'ArrowUp':
-        event.preventDefault()
-        moveSelectedRank(-1)
-        break
-      case 'r':
-        event.preventDefault()
-        appContext.loadRankBundle({ force: true })
-        break
+    if (handleTerminalShortcut(event.key)) event.preventDefault()
+  }
+
+  window.addEventListener('keydown', handleShortcutEvent)
+  installParentKeyboardBridge(handleShortcutEvent)
+}
+
+function installParentKeyboardBridge(handleShortcutEvent) {
+  const parentWindow = getSameOriginParentWindow()
+  if (!parentWindow) return
+
+  parentWindow.addEventListener('keydown', handleShortcutEvent)
+  window.addEventListener(
+    'pagehide',
+    () => {
+      parentWindow.removeEventListener('keydown', handleShortcutEvent)
+    },
+    { once: true }
+  )
+}
+
+function getSameOriginParentWindow() {
+  try {
+    if (window.parent !== window && window.parent.location.origin === window.location.origin) {
+      return window.parent
     }
-  })
+    return null
+  } catch {
+    return null
+  }
+}
+
+function handleTerminalShortcut(keyValue) {
+  const key = keyValue.length === 1 ? keyValue.toLowerCase() : keyValue
+  switch (key) {
+    case '1':
+      appContext.selectPeriod('day')
+      return true
+    case '2':
+      appContext.selectPeriod('week')
+      return true
+    case '3':
+      appContext.selectPeriod('month')
+      return true
+    case '4':
+      appContext.selectPeriod('all')
+      return true
+    case 'j':
+    case 'ArrowDown':
+      moveSelectedRank(1)
+      return true
+    case 'k':
+    case 'ArrowUp':
+      moveSelectedRank(-1)
+      return true
+    case 'r':
+      appContext.loadRankBundle({ force: true })
+      return true
+    default:
+      return false
+  }
 }
 
 function isEditableTarget(target) {
-  if (!(target instanceof HTMLElement)) return false
+  if (!target || target.nodeType !== Node.ELEMENT_NODE) return false
 
   const tagName = target.tagName
   return (
