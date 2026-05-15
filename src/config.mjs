@@ -24,6 +24,12 @@ const DEFAULT_CONFIG = {
   storage: {
     sqlitePath: './data/rank-addon.sqlite',
   },
+  ui: {
+    theme: 'classic',
+    terminal: {
+      visibleRows: 20,
+    },
+  },
   webdav: {
     enabled: false,
     baseUrl: '',
@@ -76,6 +82,15 @@ export async function loadConfig(options = {}) {
         merged.storage.sqlitePath || DEFAULT_CONFIG.storage.sqlitePath,
         configDir
       ),
+    },
+    ui: {
+      theme: normalizeUiTheme(merged.ui.theme),
+      terminal: {
+        visibleRows: normalizePositiveInt(
+          merged.ui.terminal?.visibleRows,
+          DEFAULT_CONFIG.ui.terminal.visibleRows
+        ),
+      },
     },
     webdav: {
       enabled: normalizeBoolean(merged.webdav.enabled, DEFAULT_CONFIG.webdav.enabled),
@@ -136,6 +151,14 @@ function mergeConfig(base, override) {
       ...base.storage,
       ...(override.storage || {}),
     },
+    ui: {
+      ...base.ui,
+      ...(override.ui || {}),
+      terminal: {
+        ...base.ui.terminal,
+        ...(override.ui?.terminal || {}),
+      },
+    },
     webdav: {
       ...base.webdav,
       ...(override.webdav || {}),
@@ -191,6 +214,11 @@ function normalizeBoolean(value, fallback) {
   if (['1', 'true', 'yes', 'on'].includes(normalized)) return true
   if (['0', 'false', 'no', 'off'].includes(normalized)) return false
   return fallback
+}
+
+function normalizeUiTheme(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  return normalized === 'terminal' ? 'terminal' : DEFAULT_CONFIG.ui.theme
 }
 
 function getConfigDir(configPath) {

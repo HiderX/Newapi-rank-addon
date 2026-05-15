@@ -11,6 +11,8 @@ const LOAD_MORE_ROWS = 20
 const SCROLL_LOAD_THRESHOLD = 280
 const QUOTA_PER_UNIT = 500000
 const THEME_STORAGE_KEY = 'theme-mode'
+const TERMINAL_DEFAULT_VISIBLE_ROWS = 20
+const isTerminalTheme = document.documentElement.dataset.uiTheme === 'terminal'
 
 const state = {
   period: 'day',
@@ -18,6 +20,13 @@ const state = {
   rankRows: [],
   visibleRows: INITIAL_VISIBLE_ROWS,
   maxQuota: 1,
+  selectedRankIndex: 0,
+  lastRefreshAt: new Date(),
+  summary: {
+    quota: 0,
+    tokens: 0,
+    count: 0,
+  },
 }
 
 const elements = {
@@ -28,10 +37,15 @@ const elements = {
   count: document.querySelector('#metric-count'),
   rankChart: document.querySelector('#rank-chart'),
   scrollHint: document.querySelector('#scroll-hint'),
+  terminalBanner: null,
+  terminalPrompt: null,
+  terminalStatus: null,
 }
 
 installThemeSync()
+installTerminalChrome()
 renderControls()
+installKeyboardControls()
 elements.refreshButton.addEventListener('click', () => {
   loadRankBundle({ force: true })
 })
@@ -44,12 +58,120 @@ function renderControls() {
     PERIOD_OPTIONS,
     state.period,
     (option) => {
-      if (state.period === option.value) return
-      state.period = option.value
-      renderCurrentPeriod()
+      selectPeriod(option.value)
     },
     (option) => option.value,
     (option) => option.label
+  )
+}
+
+function selectPeriod(period) {
+  if (!PERIOD_OPTIONS.some((option) => option.value === period)) return
+  if (state.period === period) return
+
+  state.period = period
+  state.selectedRankIndex = 0
+  renderControls()
+  renderCurrentPeriod()
+  resetTerminalRankScroll()
+}
+
+function installTerminalChrome() {
+  if (!isTerminalTheme) return
+
+  const shell = document.querySelector('.page-shell')
+  if (!shell) return
+
+  shell.classList.add('terminal-window')
+  const titlebar = document.createElement('div')
+  titlebar.className = 'terminal-titlebar'
+  titlebar.innerHTML = `
+    <div class="terminal-lights" aria-hidden="true">
+      <span class="terminal-light terminal-red"></span>
+      <span class="terminal-light terminal-yellow"></span>
+      <span class="terminal-light terminal-green"></span>
+    </div>
+    <div class="terminal-title">newapi-rank-addon - zsh - rankctl</div>
+  `
+  shell.prepend(titlebar)
+
+  const banner = document.createElement('div')
+  banner.className = 'terminal-banner'
+  const prompt = document.createElement('div')
+  prompt.className = 'terminal-prompt'
+  prompt.setAttribute('aria-live', 'polite')
+  const status = document.createElement('div')
+  status.className = 'terminal-status'
+  status.setAttribute('aria-live', 'polite')
+
+  const toolbar = document.querySelector('.toolbar')
+  const panel = document.querySelector('.panel')
+  toolbar?.before(banner, prompt)
+  panel?.after(status)
+  elements.terminalBanner = banner
+  elements.terminalPrompt = prompt
+  elements.terminalStatus = status
+  elements.rankChart.classList.add('terminal-output')
+  document.documentElement.style.setProperty(
+    '--terminal-visible-rows',
+    String(getTerminalVisibleRows())
+  )
+  updateTerminalBanner()
+  updateTerminalPrompt()
+}
+
+function installKeyboardControls() {
+  if (!isTerminalTheme) return
+
+  window.addEventListener('keydown', (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target)) return
+
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
+    switch (key) {
+      case '1':
+        event.preventDefault()
+        selectPeriod('day')
+        break
+      case '2':
+        event.preventDefault()
+        selectPeriod('week')
+        break
+      case '3':
+        event.preventDefault()
+        selectPeriod('month')
+        break
+      case '4':
+        event.preventDefault()
+        selectPeriod('all')
+        break
+      case 'j':
+      case 'ArrowDown':
+        event.preventDefault()
+        moveSelectedRank(1)
+        break
+      case 'k':
+      case 'ArrowUp':
+        event.preventDefault()
+        moveSelectedRank(-1)
+        break
+      case 'r':
+        event.preventDefault()
+        loadRankBundle({ force: true })
+        break
+    }
+  })
+}
+
+function isEditableTarget(target) {
+  if (!(target instanceof HTMLElement)) return false
+
+  const tagName = target.tagName
+  return (
+    tagName === 'INPUT' ||
+    tagName === 'TEXTAREA' ||
+    tagName === 'SELECT' ||
+    target.isContentEditable ||
+    Boolean(target.closest('[contenteditable="true"]'))
   )
 }
 
@@ -63,7 +185,6 @@ function renderButtonGroup(container, options, activeValue, onSelect, getValue, 
     button.textContent = getLabel(option)
     button.addEventListener('click', () => {
       onSelect(option)
-      renderControls()
     })
     container.append(button)
   }
@@ -71,7 +192,10 @@ function renderButtonGroup(container, options, activeValue, onSelect, getValue, 
 
 async function loadRankBundle(options = {}) {
   setRefreshState('loading')
-  state.visibleRows = INITIAL_VISIBLE_ROWS
+  if (!isTerminalTheme) {
+    state.visibleRows = INITIAL_VISIBLE_ROWS
+    state.selectedRankIndex = 0
+  }
   const params = new URLSearchParams({
     page_size: String(RANK_FETCH_LIMIT),
   })
@@ -88,6 +212,8 @@ async function loadRankBundle(options = {}) {
       throw new Error(payload.message || `请求失败：${res.status}`)
     }
     state.periodData = payload.data?.periods || {}
+    state.lastRefreshAt = new Date()
+    updateTerminalBanner()
     renderCurrentPeriod()
     setRefreshState('idle')
   } catch (error) {
@@ -97,7 +223,8 @@ async function loadRankBundle(options = {}) {
 }
 
 function renderCurrentPeriod() {
-  state.visibleRows = INITIAL_VISIBLE_ROWS
+  if (!isTerminalTheme) state.visibleRows = INITIAL_VISIBLE_ROWS
+  updateTerminalPrompt()
   const data = state.periodData[state.period]
   if (!data) {
     renderError('暂无排行数据')
@@ -113,6 +240,12 @@ function renderCurrentPeriod() {
 function renderDashboard(data) {
   state.rankRows = Array.isArray(data.rank_rows) ? data.rank_rows : []
   state.maxQuota = Math.max(...state.rankRows.map((row) => Number(row.quota) || 0), 1)
+  state.summary = {
+    quota: data.total_quota,
+    tokens: data.total_tokens,
+    count: data.total_count,
+  }
+  clampSelectedRankIndex()
   elements.quota.textContent = formatQuota(data.total_quota)
   elements.tokens.textContent = formatInt(data.total_tokens)
   elements.count.textContent = formatInt(data.total_count)
@@ -120,6 +253,15 @@ function renderDashboard(data) {
 }
 
 function renderRankChart() {
+  if (isTerminalTheme) {
+    renderTerminalRankChart()
+    return
+  }
+
+  renderClassicRankChart()
+}
+
+function renderClassicRankChart() {
   elements.rankChart.replaceChildren()
   const rows = state.rankRows
   if (!rows.length) {
@@ -149,6 +291,163 @@ function renderRankChart() {
   renderScrollHint(rows.length)
 }
 
+function renderTerminalRankChart() {
+  elements.rankChart.replaceChildren()
+  const rows = state.rankRows
+  if (!rows.length) {
+    const empty = document.createElement('div')
+    empty.className = 'terminal-empty'
+    empty.textContent = '暂无排行数据'
+    elements.rankChart.append(empty)
+    renderScrollHint(0)
+    updateTerminalStatus('rows=0 selected=-')
+    return
+  }
+
+  clampSelectedRankIndex()
+  const visibleRows = rows
+  const table = document.createElement('div')
+  table.className = 'terminal-table'
+  table.setAttribute('role', 'table')
+  table.setAttribute('aria-label', '终端风格用户消耗排行')
+  table.append(createTerminalTableRow(['RANK', 'USER', 'TIER', 'QUOTA', 'TOKENS', 'REQ'], true))
+
+  for (const [index, row] of visibleRows.entries()) {
+    const tierLabel = formatTerminalTier(row.tier || {})
+    const item = createTerminalTableRow(
+      [
+        `#${row.rank}`,
+        String(row.name || '-'),
+        tierLabel,
+        formatQuota(row.quota),
+        formatInt(row.token_used),
+        formatInt(row.count),
+      ],
+      false
+    )
+    item.dataset.rankIndex = String(index)
+    item.classList.toggle('is-selected', index === state.selectedRankIndex)
+    item.setAttribute('aria-selected', index === state.selectedRankIndex ? 'true' : 'false')
+    decorateTerminalTierCell(item.children[2])
+    table.append(item)
+  }
+
+  elements.rankChart.append(table)
+  renderScrollHint(rows.length)
+  updateTerminalStatus(getTerminalStatusText(rows.length))
+}
+
+function createTerminalTableRow(cells, isHeader) {
+  const row = document.createElement('div')
+  row.className = `terminal-table-row${isHeader ? ' terminal-table-head' : ''}`
+  row.setAttribute('role', 'row')
+
+  for (const cellText of cells) {
+    const cell = document.createElement('div')
+    cell.setAttribute('role', isHeader ? 'columnheader' : 'cell')
+    cell.textContent = cellText
+    row.append(cell)
+  }
+
+  return row
+}
+
+function moveSelectedRank(delta) {
+  if (!state.rankRows.length) return
+
+  const nextIndex = Math.min(
+    Math.max(state.selectedRankIndex + delta, 0),
+    state.rankRows.length - 1
+  )
+  if (nextIndex === state.selectedRankIndex) return
+
+  state.selectedRankIndex = nextIndex
+  if (!isTerminalTheme && state.selectedRankIndex >= state.visibleRows) {
+    state.visibleRows = Math.min(state.selectedRankIndex + 1, state.rankRows.length)
+  }
+  renderRankChart()
+  scrollSelectedRankIntoView()
+}
+
+function clampSelectedRankIndex() {
+  if (!state.rankRows.length) {
+    state.selectedRankIndex = 0
+    return
+  }
+
+  state.selectedRankIndex = Math.min(
+    Math.max(state.selectedRankIndex, 0),
+    state.rankRows.length - 1
+  )
+}
+
+function scrollSelectedRankIntoView() {
+  if (!isTerminalTheme) return
+
+  const selected = elements.rankChart.querySelector(
+    `.terminal-table-row[data-rank-index="${state.selectedRankIndex}"]`
+  )
+  selected?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+}
+
+function resetTerminalRankScroll() {
+  if (!isTerminalTheme) return
+  elements.rankChart.scrollTop = 0
+  elements.rankChart.scrollLeft = 0
+}
+
+function getTerminalVisibleRows() {
+  const value = Number(document.documentElement.dataset.terminalVisibleRows)
+  if (!Number.isFinite(value) || value <= 0) return TERMINAL_DEFAULT_VISIBLE_ROWS
+  return Math.floor(value)
+}
+
+function updateTerminalPrompt() {
+  if (!isTerminalTheme || !elements.terminalPrompt) return
+
+  elements.terminalPrompt.textContent = `rank@newapi ~ % rankctl ${state.period} --limit ${RANK_FETCH_LIMIT}`
+}
+
+function updateTerminalBanner() {
+  if (!isTerminalTheme || !elements.terminalBanner) return
+  elements.terminalBanner.textContent = formatTerminalLoginTime(state.lastRefreshAt)
+}
+
+function updateTerminalStatus(text) {
+  if (!isTerminalTheme || !elements.terminalStatus) return
+  elements.terminalStatus.textContent = text
+}
+
+function getTerminalStatusText(totalRows) {
+  const selected = state.rankRows[state.selectedRankIndex]
+  const selectedText = selected ? `selected=#${selected.rank} ${selected.name}` : 'selected=-'
+  return [
+    `period=${state.period} rows=${totalRows}/${totalRows} ${selectedText}`,
+    `total=${formatQuota(state.summary.quota)} tokens=${formatInt(state.summary.tokens)} requests=${formatInt(state.summary.count)}`,
+    'keys: 1 day 2 week 3 month 4 all, j/k move, r refresh',
+  ].join('\n')
+}
+
+function decorateTerminalTierCell(cell) {
+  if (!(cell instanceof HTMLElement)) return
+  const text = cell.textContent || ''
+  if (!/[★☆]/.test(text)) return
+
+  cell.classList.add('terminal-tier-cell')
+  const fragment = document.createDocumentFragment()
+  for (const char of text) {
+    if (char === '★' || char === '☆') {
+      const star = document.createElement('span')
+      star.className = 'terminal-star'
+      star.textContent = char
+      fragment.append(star)
+    } else {
+      fragment.append(document.createTextNode(char))
+    }
+  }
+  cell.replaceChildren(fragment)
+}
+
 function setRankNameColumnWidth(rows) {
   const font = getComputedStyle(elements.rankChart).font
   const canvas = setRankNameColumnWidth.canvas || document.createElement('canvas')
@@ -166,6 +465,7 @@ function setRankNameColumnWidth(rows) {
 }
 
 function handleInfiniteScroll() {
+  if (isTerminalTheme) return
   if (state.visibleRows >= state.rankRows.length) return
 
   const scrollBottom = window.scrollY + window.innerHeight
@@ -179,6 +479,12 @@ function handleInfiniteScroll() {
 function renderScrollHint(totalRows) {
   if (!elements.scrollHint) return
 
+  if (isTerminalTheme) {
+    elements.scrollHint.textContent = ''
+    elements.scrollHint.hidden = true
+    return
+  }
+
   const hasMoreRows = state.visibleRows < totalRows
   elements.scrollHint.textContent = hasMoreRows ? '继续向下滚动查看更多' : ''
   elements.scrollHint.hidden = !hasMoreRows
@@ -187,16 +493,23 @@ function renderScrollHint(totalRows) {
 function renderError(message) {
   state.rankRows = []
   state.maxQuota = 1
+  state.selectedRankIndex = 0
+  state.summary = {
+    quota: 0,
+    tokens: 0,
+    count: 0,
+  }
   elements.quota.textContent = formatQuota(0)
   elements.tokens.textContent = formatInt(0)
   elements.count.textContent = formatInt(0)
-  elements.rankChart.innerHTML = `<div class="error">${escapeHtml(message)}</div>`
+  elements.rankChart.innerHTML = `<div class="${isTerminalTheme ? 'terminal-error' : 'error'}">${escapeHtml(message)}</div>`
   renderScrollHint(0)
+  updateTerminalStatus(`error=${message}`)
 }
 
-function setRefreshState(state) {
-  const isLoading = state === '加载中' || state === 'loading'
-  const isError = state === 'error'
+function setRefreshState(refreshState) {
+  const isLoading = refreshState === '加载中' || refreshState === 'loading'
+  const isError = refreshState === 'error'
   elements.refreshButton.textContent = isLoading ? '刷新中' : '刷新'
   elements.refreshButton.disabled = isLoading
   elements.refreshButton.classList.toggle('is-error', isError)
@@ -312,6 +625,34 @@ function formatQuota(value) {
 
 function formatInt(value) {
   return (Number(value) || 0).toLocaleString()
+}
+
+function formatTerminalLoginTime(value) {
+  const date = value instanceof Date && !Number.isNaN(value.getTime()) ? value : new Date()
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const day = String(date.getDate()).padStart(2, ' ')
+  const time = [
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0'),
+    String(date.getSeconds()).padStart(2, '0'),
+  ].join(':')
+
+  return `Last login: ${weekdays[date.getDay()]} ${months[date.getMonth()]} ${day} ${time} on ttys000`
+}
+
+function formatTerminalTier(tier) {
+  if (tier?.display) {
+    return String(tier.display)
+      .replaceAll('⭐️', getTerminalStarSymbol())
+      .replaceAll('⭐', getTerminalStarSymbol())
+  }
+  if (!tier?.label) return '-'
+  return tier.code?.includes('king') ? `${tier.label}${getTerminalStarSymbol()}${formatInt(tier.stars)}` : tier.label
+}
+
+function getTerminalStarSymbol() {
+  return document.documentElement.dataset.theme === 'dark' ? '☆' : '★'
 }
 
 function formatTier(tier) {

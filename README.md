@@ -47,6 +47,12 @@ Edit `config.json` in the project root for your environment first:
   "storage": {
     "sqlitePath": "./data/rank-addon.sqlite"
   },
+  "ui": {
+    "theme": "classic",
+    "terminal": {
+      "visibleRows": 20
+    }
+  },
   "webdav": {
     "enabled": false,
     "baseUrl": "https://example.com/dav",
@@ -112,6 +118,10 @@ This lets the browser send the New API cookies automatically, so the add-on can 
   `cache.staleSeconds`: stale-while-refresh window after fresh TTL expires, default `600`
 - `storage.sqlitePath`：SQLite 数据库路径，用于缓存响应和持久化段位继承结果，默认 `./data/rank-addon.sqlite`
   `storage.sqlitePath`: SQLite database path for response cache and persisted tier inheritance, default `./data/rank-addon.sqlite`
+- `ui.theme`：页面主题，只能在 `config.json` 中配置；`classic` 保持默认设计，`terminal` 启用 macOS Terminal.app 风格界面
+  `ui.theme`: page theme configured through `config.json`; `classic` keeps the default design, while `terminal` enables the macOS Terminal.app-style UI
+- `ui.terminal.visibleRows`：终端主题排行榜窗口可见数据行数，默认 `20`
+  `ui.terminal.visibleRows`: visible ranking rows in the terminal theme viewport, default `20`
 - `webdav.enabled`：是否启用 SQLite 快照备份，默认 `false`
   `webdav.enabled`: enable SQLite snapshot backup, default `false`
 - `webdav.baseUrl`：WebDAV 根地址

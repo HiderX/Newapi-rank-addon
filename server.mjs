@@ -47,7 +47,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/' || url.pathname === '/rank-addon/users') {
-      await serveFile('index.html', res)
+      await serveIndex(res)
       return
     }
 
@@ -207,6 +207,29 @@ async function serveFile(fileName, res) {
     'cache-control': 'no-store',
   })
   res.end(content)
+}
+
+async function serveIndex(res) {
+  const content = await readFile(path.join(publicDir, 'index.html'), 'utf8')
+  res.writeHead(200, {
+    'content-type': mimeTypes.get('.html'),
+    'cache-control': 'no-store',
+  })
+  res.end(renderIndexHtml(content))
+}
+
+function renderIndexHtml(content) {
+  const terminalThemeLink =
+    config.ui.theme === 'terminal'
+      ? '<link rel="stylesheet" href="/rank-addon/assets/terminal.css" />'
+      : ''
+  return String(content)
+    .replaceAll('data-ui-theme="classic"', `data-ui-theme="${config.ui.theme}"`)
+    .replaceAll(
+      'data-terminal-visible-rows="20"',
+      `data-terminal-visible-rows="${config.ui.terminal.visibleRows}"`
+    )
+    .replaceAll('<!-- terminal-theme-link -->', terminalThemeLink)
 }
 
 function sendJson(res, status, payload) {

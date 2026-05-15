@@ -30,6 +30,12 @@ test('loadConfig reads runtime values from config.json', async () => {
       storage: {
         sqlitePath: './data/custom.sqlite',
       },
+      ui: {
+        theme: 'terminal',
+        terminal: {
+          visibleRows: 12,
+        },
+      },
       webdav: {
         enabled: true,
         baseUrl: 'https://dav.example.com/root',
@@ -60,6 +66,12 @@ test('loadConfig reads runtime values from config.json', async () => {
     staleSeconds: 900,
   })
   assert.equal(config.storage.sqlitePath, path.join(dir, 'data/custom.sqlite'))
+  assert.deepEqual(config.ui, {
+    theme: 'terminal',
+    terminal: {
+      visibleRows: 12,
+    },
+  })
   assert.deepEqual(config.webdav, {
     enabled: true,
     baseUrl: 'https://dav.example.com/root',
@@ -113,6 +125,12 @@ test('loadConfig still supports environment overrides for local one-off runs', a
     staleSeconds: 600,
   })
   assert.equal(config.storage.sqlitePath, '/tmp/rank.sqlite')
+  assert.deepEqual(config.ui, {
+    theme: 'classic',
+    terminal: {
+      visibleRows: 20,
+    },
+  })
   assert.deepEqual(config.webdav, {
     enabled: true,
     baseUrl: 'https://dav.example.com',
@@ -122,6 +140,28 @@ test('loadConfig still supports environment overrides for local one-off runs', a
     backupIntervalSeconds: 3600,
     retention: 7,
     timeoutSeconds: 15,
+  })
+})
+
+test('loadConfig defaults UI theme to classic and rejects unknown themes', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rank-config-ui-'))
+  const configPath = path.join(dir, 'config.json')
+  await writeFile(
+    configPath,
+    JSON.stringify({
+      ui: {
+        theme: 'neon',
+      },
+    })
+  )
+
+  const config = await loadConfig({ configPath, env: {} })
+
+  assert.deepEqual(config.ui, {
+    theme: 'classic',
+    terminal: {
+      visibleRows: 20,
+    },
   })
 })
 

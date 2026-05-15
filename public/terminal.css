@@ -1,0 +1,261 @@
+:root[data-ui-theme='terminal'] {
+  color-scheme: light;
+  --terminal-desktop: #d8d8d8;
+  --terminal-window-bg: #fff;
+  --terminal-titlebar-bg: #ececec;
+  --terminal-titlebar-border: #d0d0d0;
+  --terminal-text: #000;
+  --terminal-muted: #696969;
+  --terminal-command: #005cc5;
+  --terminal-accent: #0b7a32;
+  --terminal-selected-bg: #000;
+  --terminal-selected-text: #fff;
+  --terminal-error: #b42318;
+  --terminal-visible-rows: 20;
+  --terminal-row-height: calc(13px * 1.5 + 2px);
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+}
+
+:root[data-ui-theme='terminal'][data-theme='dark'] {
+  color-scheme: dark;
+  --terminal-desktop: #1f1f1f;
+  --terminal-window-bg: #000;
+  --terminal-titlebar-bg: #2b2b2b;
+  --terminal-titlebar-border: #3a3a3a;
+  --terminal-text: #fff;
+  --terminal-muted: #9b9b9b;
+  --terminal-command: #6cb6ff;
+  --terminal-accent: #8bdc8b;
+  --terminal-selected-bg: #fff;
+  --terminal-selected-text: #000;
+  --terminal-error: #ff8585;
+}
+
+:root[data-ui-theme='terminal'] body {
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  background: var(--terminal-desktop);
+  color: var(--terminal-text);
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+}
+
+:root[data-ui-theme='terminal'] .terminal-window {
+  width: min(1180px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  margin: 32px auto;
+  padding: 0;
+  overflow: hidden;
+  background: var(--terminal-window-bg);
+  border: 1px solid var(--terminal-titlebar-border);
+  border-radius: 10px;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 28%);
+}
+
+:root[data-ui-theme='terminal'] .terminal-titlebar {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 92px;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  background: var(--terminal-titlebar-bg);
+  border-bottom: 1px solid var(--terminal-titlebar-border);
+  user-select: none;
+}
+
+:root[data-ui-theme='terminal'] .terminal-lights {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+:root[data-ui-theme='terminal'] .terminal-light {
+  width: 12px;
+  height: 12px;
+  background: #ff5f57;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 14%);
+}
+
+:root[data-ui-theme='terminal'] .terminal-yellow {
+  background: #ffbd2e;
+}
+
+:root[data-ui-theme='terminal'] .terminal-green {
+  background: #28c840;
+}
+
+:root[data-ui-theme='terminal'] .terminal-title {
+  overflow: hidden;
+  color: var(--terminal-muted);
+  font-size: 13px;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-ui-theme='terminal'] .page-head,
+:root[data-ui-theme='terminal'] .toolbar,
+:root[data-ui-theme='terminal'] .summary-grid,
+:root[data-ui-theme='terminal'] .panel-head,
+:root[data-ui-theme='terminal'] .scroll-hint {
+  display: none;
+}
+
+:root[data-ui-theme='terminal'] .terminal-banner,
+:root[data-ui-theme='terminal'] .terminal-prompt,
+:root[data-ui-theme='terminal'] .terminal-status,
+:root[data-ui-theme='terminal'] .panel {
+  width: auto;
+  margin-right: 24px;
+  margin-left: 24px;
+}
+
+:root[data-ui-theme='terminal'] .terminal-banner,
+:root[data-ui-theme='terminal'] .terminal-prompt,
+:root[data-ui-theme='terminal'] .terminal-status {
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+:root[data-ui-theme='terminal'] .terminal-banner {
+  margin-top: 18px;
+  color: var(--terminal-muted);
+}
+
+:root[data-ui-theme='terminal'] .terminal-prompt {
+  margin-top: 2px;
+  color: var(--terminal-command);
+}
+
+:root[data-ui-theme='terminal'] .terminal-prompt::after {
+  display: inline-block;
+  width: 7px;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--terminal-text);
+  content: '';
+}
+
+:root[data-ui-theme='terminal'] .terminal-status {
+  margin-top: 6px;
+  height: calc(13px * 1.45 * 3);
+  padding: 0;
+  overflow: hidden;
+  color: var(--terminal-text);
+  white-space: pre;
+}
+
+:root[data-ui-theme='terminal'] .panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 8px;
+  margin-bottom: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:root[data-ui-theme='terminal'] .rank-chart.terminal-output {
+  height: calc(var(--terminal-row-height) * (var(--terminal-visible-rows) + 1));
+  max-height: calc(100vh - 220px);
+  min-height: 0;
+  padding: 0;
+  overflow: auto;
+  scroll-padding-top: var(--terminal-row-height);
+  scrollbar-width: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+:root[data-ui-theme='terminal'] .rank-chart.terminal-output::-webkit-scrollbar {
+  display: none;
+}
+
+:root[data-ui-theme='terminal'] .terminal-table {
+  min-width: 820px;
+  background: var(--terminal-window-bg);
+}
+
+:root[data-ui-theme='terminal'] .terminal-table-row {
+  display: grid;
+  grid-template-columns: 8ch minmax(20ch, 1.5fr) minmax(16ch, 1fr) 12ch 15ch 8ch;
+  column-gap: 2ch;
+  color: var(--terminal-text);
+}
+
+:root[data-ui-theme='terminal'] .terminal-table-row > * {
+  min-width: 0;
+  padding: 1px 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-ui-theme='terminal'] .terminal-table-row[data-rank-index] {
+  scroll-margin-top: var(--terminal-row-height);
+}
+
+:root[data-ui-theme='terminal'] .terminal-table-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--terminal-window-bg);
+  color: var(--terminal-muted);
+  font-weight: 700;
+}
+
+:root[data-ui-theme='terminal'] .terminal-table-row.is-selected {
+  background: var(--terminal-selected-bg);
+  color: var(--terminal-selected-text);
+}
+
+:root[data-ui-theme='terminal'] .terminal-star {
+  display: inline-block;
+  width: 1ch;
+  font-size: 1.2em;
+  line-height: 0;
+  vertical-align: -0.03em;
+}
+
+:root[data-ui-theme='terminal'] .terminal-empty,
+:root[data-ui-theme='terminal'] .terminal-error {
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+:root[data-ui-theme='terminal'] .terminal-error {
+  color: var(--terminal-error);
+}
+
+@media (max-width: 720px) {
+  :root[data-ui-theme='terminal'] .terminal-window {
+    width: 100vw;
+    max-height: 100vh;
+    margin: 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  :root[data-ui-theme='terminal'] .terminal-banner,
+  :root[data-ui-theme='terminal'] .terminal-prompt,
+  :root[data-ui-theme='terminal'] .terminal-status,
+  :root[data-ui-theme='terminal'] .panel {
+    margin-right: 14px;
+    margin-left: 14px;
+  }
+}

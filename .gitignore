@@ -3,3 +3,5 @@ deployments.log
 config.json
 data/
 .DS_Store
+memory.md
+.superpowers/

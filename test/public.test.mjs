@@ -48,6 +48,16 @@ test('ranking controls remove page-size select and use scroll reveal', async () 
   assert.match(css, /@media \(max-width: 560px\) \{[\s\S]*?\.period-control\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/)
 })
 
+test('ranking page hides document scrollbar while keeping window scroll enabled', async () => {
+  const css = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8')
+
+  assert.match(css, /html,\s*body\s*\{[^}]*scrollbar-width:\s*none/s)
+  assert.match(css, /html::-webkit-scrollbar,\s*body::-webkit-scrollbar\s*\{[^}]*display:\s*none/s)
+  assert.doesNotMatch(css, /html\s*\{[^}]*overflow-y:\s*scroll/s)
+  assert.doesNotMatch(css, /scrollbar-gutter:\s*stable/)
+  assert.doesNotMatch(css, /(?:html|body)(?:,\s*(?:html|body))*\s*\{[^}]*overflow(?:-y)?:\s*hidden/s)
+})
+
 test('ranking panel copy omits username alignment text and tier badge uses compact fixed width', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8')
   const css = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8')

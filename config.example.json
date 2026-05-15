@@ -20,6 +20,12 @@
   "storage": {
     "sqlitePath": "./data/rank-addon.sqlite"
   },
+  "ui": {
+    "theme": "classic",
+    "terminal": {
+      "visibleRows": 20
+    }
+  },
   "webdav": {
     "enabled": false,
     "baseUrl": "https://example.com/dav",
