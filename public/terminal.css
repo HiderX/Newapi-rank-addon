@@ -13,6 +13,7 @@
   --terminal-error: #b42318;
   --terminal-visible-rows: 20;
   --terminal-row-height: calc(13px * 1.5 + 2px);
+  background: var(--terminal-desktop);
   font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 }
 
@@ -32,6 +33,7 @@
 }
 
 :root[data-ui-theme='terminal'] body {
+  display: flow-root;
   min-height: 100vh;
   margin: 0;
   overflow: hidden;
