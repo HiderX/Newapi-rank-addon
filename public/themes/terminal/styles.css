@@ -13,6 +13,7 @@
   --terminal-error: #b42318;
   --terminal-visible-rows: 20;
   --terminal-row-height: calc(13px * 1.5 + 2px);
+  --terminal-viewport-height: 100dvh;
   background: var(--terminal-desktop);
   font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 }
@@ -38,7 +39,7 @@
 
 :root[data-ui-theme='terminal'] body {
   display: flow-root;
-  min-height: 100vh;
+  min-height: var(--terminal-viewport-height);
   margin: 0;
   overflow: hidden;
   background: var(--terminal-desktop);
@@ -48,7 +49,7 @@
 
 :root[data-ui-theme='terminal'] .terminal-window {
   width: min(1180px, calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
+  max-height: calc(var(--terminal-viewport-height) - 64px);
   display: flex;
   flex-direction: column;
   margin: 32px auto;
@@ -173,7 +174,7 @@
 
 :root[data-ui-theme='terminal'] .rank-chart.terminal-output {
   height: calc(var(--terminal-row-height) * (var(--terminal-visible-rows) + 1));
-  max-height: calc(100vh - 220px);
+  max-height: calc(var(--terminal-viewport-height) - 220px);
   min-height: 0;
   padding: 0;
   overflow: auto;
@@ -250,7 +251,7 @@
 @media (max-width: 720px) {
   :root[data-ui-theme='terminal'] .terminal-window {
     width: 100vw;
-    max-height: 100vh;
+    max-height: var(--terminal-viewport-height);
     margin: 0;
     border-right: 0;
     border-left: 0;

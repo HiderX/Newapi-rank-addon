@@ -8,6 +8,7 @@ startRankApp({
   errorClass: 'terminal-error',
   install(context) {
     appContext = context
+    installTerminalViewportSizing()
     installTerminalChrome()
     installKeyboardControls()
   },
@@ -42,6 +43,24 @@ startRankApp({
     if (context.state.rankRows.length) context.renderRankChart()
   },
 })
+
+function installTerminalViewportSizing() {
+  const syncViewportHeight = () => {
+    const visualHeight = window.visualViewport?.height
+    const viewportHeight =
+      Number.isFinite(visualHeight) && visualHeight > 0 ? visualHeight : window.innerHeight
+
+    if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) return
+    document.documentElement.style.setProperty('--terminal-viewport-height', `${viewportHeight}px`)
+  }
+
+  // Safari 在 iframe 内可能把 CSS vh 算成父页面视口；这里以实际窗口高度锁定终端布局。
+  syncViewportHeight()
+  window.addEventListener('resize', syncViewportHeight)
+  window.addEventListener('orientationchange', syncViewportHeight)
+  window.addEventListener('pageshow', syncViewportHeight)
+  window.visualViewport?.addEventListener?.('resize', syncViewportHeight)
+}
 
 function installTerminalChrome() {
   const { elements } = appContext
