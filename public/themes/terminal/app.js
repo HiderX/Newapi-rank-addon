@@ -46,20 +46,60 @@ startRankApp({
 
 function installTerminalViewportSizing() {
   const syncViewportHeight = () => {
-    const visualHeight = window.visualViewport?.height
-    const viewportHeight =
-      Number.isFinite(visualHeight) && visualHeight > 0 ? visualHeight : window.innerHeight
-
+    const viewportHeight = getTerminalViewportHeight()
     if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) return
     document.documentElement.style.setProperty('--terminal-viewport-height', `${viewportHeight}px`)
   }
 
-  // Safari 在 iframe 内可能把 CSS vh 算成父页面视口；这里以实际窗口高度锁定终端布局。
+  const scheduleViewportSync = () => {
+    syncViewportHeight()
+    window.requestAnimationFrame?.(syncViewportHeight)
+    window.requestAnimationFrame?.(() => window.requestAnimationFrame?.(syncViewportHeight))
+  }
+
+  const frameElement = getTerminalFrameElement()
+  const frameResizeObserver =
+    frameElement && typeof ResizeObserver === 'function'
+      ? new ResizeObserver(syncViewportHeight)
+      : null
+
+  // Safari 在 iframe 内可能把 visualViewport/vh 算成父页面视口；iframe 元素高度才是权威值。
   syncViewportHeight()
-  window.addEventListener('resize', syncViewportHeight)
-  window.addEventListener('orientationchange', syncViewportHeight)
-  window.addEventListener('pageshow', syncViewportHeight)
-  window.visualViewport?.addEventListener?.('resize', syncViewportHeight)
+  scheduleViewportSync()
+  window.addEventListener('load', scheduleViewportSync)
+  window.addEventListener('resize', scheduleViewportSync)
+  window.addEventListener('orientationchange', scheduleViewportSync)
+  window.addEventListener('pageshow', scheduleViewportSync)
+  window.visualViewport?.addEventListener?.('resize', scheduleViewportSync)
+  try {
+    frameResizeObserver?.observe(frameElement)
+  } catch {
+    // Safari iframe 下跨 document 观测可能失败；多帧重测和窗口事件仍可兜底。
+  }
+}
+
+function getTerminalViewportHeight() {
+  const frameHeight = getTerminalFrameHeight()
+  if (frameHeight) return frameHeight
+
+  const visualHeight = window.visualViewport?.height
+  if (Number.isFinite(visualHeight) && visualHeight > 0) return visualHeight
+
+  return window.innerHeight
+}
+
+function getTerminalFrameHeight() {
+  const frameElement = getTerminalFrameElement()
+  const frameHeight = frameElement?.getBoundingClientRect?.().height
+  return Number.isFinite(frameHeight) && frameHeight > 0 ? frameHeight : 0
+}
+
+function getTerminalFrameElement() {
+  try {
+    return window.frameElement
+  } catch {
+    return null
+  }
 }
 
 function installTerminalChrome() {
